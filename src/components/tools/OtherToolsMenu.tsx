@@ -20,9 +20,10 @@ export default function OtherToolsMenu() {
     const triggerTool = async (toolId: string) => {
         if (isToolExecuting || loadingTool) return;
 
+        // Force close menu immediately for all tool interactions before any other logic
+        setOtherToolsMenuOpen(false);
+
         if (toolId === "CodeMentor") {
-            // Force close menu immediately for mentor only
-            setOtherToolsMenuOpen(false);
             toggleCodeMentorMode();
             return;
         }
@@ -47,7 +48,6 @@ export default function OtherToolsMenu() {
                 const data = await res.json();
                 // Ensure immediate UI mount of ToolExecutionStream
                 setToolExecutionStart(data.task_id, data.execution_id || data.task_id);
-                setOtherToolsMenuOpen(false); // Close menu after success
             } else {
                 console.error("Failed to start tool execution");
             }
