@@ -269,7 +269,7 @@ export default function SettingsModal() {
                                         value={email}
                                         onChange={(e) => { setEmail(e.target.value); setError(""); }}
                                         placeholder="your@email.com"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400"
+                                        className="w-full px-3 py-2 border border-gray-300 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all"
                                     />
                                 </div>
                                 <div>
@@ -283,7 +283,7 @@ export default function SettingsModal() {
                                         value={password}
                                         onChange={(e) => { setPassword(e.target.value); setError(""); }}
                                         placeholder="Enter a vault password (min 4 chars)"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400"
+                                        className="w-full px-3 py-2 border border-gray-300 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all"
                                     />
                                 </div>
                                 <div>
@@ -298,7 +298,7 @@ export default function SettingsModal() {
                                         onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
                                         onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                                         placeholder="Confirm your password"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400"
+                                        className="w-full px-3 py-2 border border-gray-300 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all"
                                     />
                                 </div>
                                 <button
@@ -338,7 +338,7 @@ export default function SettingsModal() {
                                     onChange={(e) => { setPassword(e.target.value); setError(""); }}
                                     onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
                                     placeholder="Enter vault password"
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-amber-400"
+                                    className="flex-1 px-3 py-2 border border-gray-300 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-sm outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all"
                                 />
                                 <button
                                     onClick={handleUnlock}
@@ -384,7 +384,7 @@ export default function SettingsModal() {
                                 value={email}
                                 onChange={(e) => { setEmail(e.target.value); setError(""); }}
                                 placeholder="your@email.com"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400 mb-3"
+                                className="w-full px-3 py-2 border border-gray-300 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all mb-3"
                             />
                             <button
                                 onClick={handleSendOtp}
@@ -428,7 +428,7 @@ export default function SettingsModal() {
                                     onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
                                     placeholder="000000"
                                     maxLength={6}
-                                    className="flex-1 px-3 py-3 border border-gray-300 rounded-lg text-center text-lg font-mono tracking-[0.5em] outline-none focus:border-blue-400"
+                                    className="flex-1 px-3 py-3 border border-gray-300 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-center text-lg font-mono tracking-[0.5em] outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all"
                                 />
                             </div>
                             <button
@@ -473,7 +473,7 @@ export default function SettingsModal() {
                                         value={newResetPassword}
                                         onChange={(e) => { setNewResetPassword(e.target.value); setError(""); }}
                                         placeholder="Enter new vault password"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-green-400"
+                                        className="w-full px-3 py-2 border border-gray-300 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-sm outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 transition-all"
                                     />
                                 </div>
                                 <div>
@@ -488,7 +488,7 @@ export default function SettingsModal() {
                                         onChange={(e) => { setConfirmResetPassword(e.target.value); setError(""); }}
                                         onKeyDown={(e) => e.key === "Enter" && handleResetPassword()}
                                         placeholder="Confirm new password"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-green-400"
+                                        className="w-full px-3 py-2 border border-gray-300 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-sm outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 transition-all"
                                     />
                                 </div>
                                 <button
@@ -560,7 +560,7 @@ export default function SettingsModal() {
                                                     <input type="text" name="api-key-input" autoComplete="off" data-lpignore="true" data-1p-ignore placeholder={provider.placeholder} value={newKey}
                                                         onChange={(e) => setNewKey(e.target.value)}
                                                         onKeyDown={(e) => e.key === "Enter" && handleSaveKey(provider.id)}
-                                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-gray-400" />
+                                                        className="flex-1 px-3 py-2 border border-gray-200 bg-white text-[#1a1a1a] placeholder:text-gray-400 rounded-lg text-sm outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-all" />
                                                     <button onClick={() => handleSaveKey(provider.id)} disabled={!newKey.trim()}
                                                         className="px-4 py-2 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-700 disabled:opacity-40">Save</button>
                                                 </div>
