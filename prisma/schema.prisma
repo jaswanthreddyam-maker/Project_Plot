@@ -1,0 +1,122 @@
+// ============================================================
+// Prisma Schema — Plot: Parallel Multi-LLM Workspace
+// Provider: PostgreSQL
+// Models: User, Account, Session, Conversation, Message, VaultOtp, ProviderSecret
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────
+// Supports both credentials and OAuth login.
+// passwordHash & salt are optional for OAuth users.
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  passwordHash  String?         // bcrypt hash (null for OAuth users)
+  name          String?
+  image         String?         // Profile image URL from OAuth
+  salt          String?         // Crypto salt for PBKDF2 (null for OAuth users)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  conversations Conversation[]
+  secrets       ProviderSecret[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
+// ─── Account (NextAuth OAuth) ────────────────────────────────
+// Stores OAuth provider tokens (Google, GitHub, etc.)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// ─── Session (NextAuth) ──────────────────────────────────────
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Conversation ────────────────────────────────────────────
+model Conversation {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String    @default("New Chat")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([userId])
+}
+
+// ─── Message ─────────────────────────────────────────────────
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String       // "user" | "assistant"
+  content        String       @db.Text
+  provider       String       // "user" | "openai" | "gemini" | "claude" | "ollama" | "grok"
+  batchId        String?
+  refereeSummary String?      @db.Text
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([batchId])
+}
+
+// ─── ProviderSecret ──────────────────────────────────────────
+model VaultOtp {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  otpHash   String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+model ProviderSecret {
+  id           String   @id @default(cuid())
+  userId       String
+  providerName String
+  cipherText   String   @db.Text
+  iv           String
+  authTag      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, providerName])
+  @@index([userId])
+}
+

@@ -1,0 +1,123 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ════════════════════════════════════════════════════════════════
+ * Global Styles — Clean White Theme
+ * ════════════════════════════════════════════════════════════════ */
+
+html,
+body {
+  @apply bg-white dark:bg-[#171717] text-gray-900 dark:text-[#ececec];
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+  border-radius: 10px;
+}
+
+/* Focus states */
+*:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+/* ── AI Assistant Overlay Animation ──────────────────────── */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ── Code Mentor Styles ─────────────────────────────── */
+.mentor-overlay {
+  animation: mentorFadeIn 0.3s ease-out;
+}
+
+@keyframes mentorFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mentor-resize-handle {
+  width: 8px;
+  background: transparent;
+  position: relative;
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.mentor-resize-handle:hover,
+.mentor-resize-handle[data-resize-handle-active] {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.mentor-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 32px;
+  border-radius: 2px;
+  background: #cbd5e1;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.mentor-resize-handle:hover::after {
+  opacity: 1;
+  background: #64748b;
+}
+
+.mentor-paragraph {
+  animation: paragraphFadeIn 0.4s ease-out both;
+}
+
+@keyframes paragraphFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mentor-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
