@@ -31,28 +31,53 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
         # Push Agent Status (e.g., Drafting, Researching)
         redis_client.rpush(stream_channel, json.dumps({"type": "status", "data": status}))
 
-    # Example dispatch logic (You will replace this with your actual Crew/Flow initializations)
     try:
         on_agent_status_change({"agent": "System", "state": "Initializing CrewAI Workflows..."})
         
-        # NOTE: Telemetry and EventBus configuration for streaming will be set here.
-        # Since CrewAI 0.98.0 event buses are configured at the Crew() level with `step_callback`
-        # or `task_callback`.
-        
-        if tool_name == "SampleResearchTool":
-            # Simulate a kickoff
-            import time
-            on_agent_status_change({"agent": "Researcher", "state": "Researching topic..."})
-            for i in range(5):
-                on_llm_stream_chunk(f"Found artifact {i}... ")
-                time.sleep(1)
-            on_agent_status_change({"agent": "Writer", "state": "Drafting final content..."})
-            for i in range(5):
-                on_llm_stream_chunk(f"Drafting paragraph {i}... ")
-                time.sleep(1)
-                
-            final_output = "Task successfully completed by AI agents."
+        if tool_name == "PlotAutonomous":
+            from autonomous_flow import PlotAutonomousFlow
+            from listeners import PlotEventListener
             
+            # Setup Event Listener
+            listener = PlotEventListener(execution_id=execution_id)
+            
+            # Extract inputs
+            objective = arguments.get("objective", "Unknown objective")
+            knowledge_payload = arguments.get("knowledge_sources", [])
+            
+            knowledge_sources = []
+            
+            try:
+                # Dynamically instantiate Knowledge Sources
+                if knowledge_payload:
+                    from crewai.knowledge.source.pdf_knowledge_source import PDFKnowledgeSource
+                    from crewai.knowledge.source.text_file_knowledge_source import TextFileKnowledgeSource
+                    from crewai.knowledge.source.crew_docling_source import CrewDoclingSource
+                    
+                    for ks in knowledge_payload:
+                        if ks.get("type") == "pdf":
+                            knowledge_sources.append(PDFKnowledgeSource(file_paths=[ks.get("path")]))
+                        elif ks.get("type") == "txt":
+                            knowledge_sources.append(TextFileKnowledgeSource(file_paths=[ks.get("path")]))
+                        elif ks.get("type") == "url":
+                            knowledge_sources.append(CrewDoclingSource(file_paths=[ks.get("path")]))
+
+                # Initialize Flow state
+                flow = PlotAutonomousFlow()
+                flow.state.user_input = objective
+                flow.state.execution_id = execution_id
+                
+                # In a real CrewAI setup, you inject these sources into the Agents or the Crew itself.
+                # For this scaffolding, we pass it into the Flow state.
+                flow.state.knowledge_sources = knowledge_sources
+                
+                # Run the Flow
+                final_output = flow.kickoff()
+                
+                on_agent_status_change({"agent": "System", "state": "Flow Execution Finished"})
+            finally:
+                # Ensure the Redis connection used by the listener is securely closed
+                listener.close()
         else:
             final_output = f"Unknown tool requested: {tool_name}"
         

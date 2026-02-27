@@ -21,7 +21,7 @@ import MentorOverlay from "@/components/mentor/MentorOverlay";
 import OtherToolsToggle from "@/components/tools/OtherToolsToggle";
 import OtherToolsMenu from "@/components/tools/OtherToolsMenu";
 import ToolExecutionStream from "@/components/tools/ToolExecutionStream";
-import AutonomousWorkspace from "@/components/workspace/AutonomousWorkspace";
+import AgentDashboard from "@/components/autonomous/AgentDashboard";
 
 const ALL_PROVIDERS: { id: ProviderOption; label: string }[] = [
     { id: "openai", label: "Openai" },
@@ -223,7 +223,7 @@ export default function WorkspacePage() {
             </header>
 
             {activeWorkspace === "autonomous" ? (
-                <AutonomousWorkspace />
+                <AgentDashboard />
             ) : (
                 <>
                     <div className="px-6 pb-2">

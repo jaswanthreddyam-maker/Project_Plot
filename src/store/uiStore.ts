@@ -21,6 +21,28 @@ export interface ConversationSummary {
     updatedAt: string;
 }
 
+export interface AgentConfig {
+    id: string;
+    role: string;
+    goal: string;
+    backstory: string;
+    provider: string; // E.g., OpenAI, Gemini
+}
+
+export interface TaskConfig {
+    id: string;
+    description: string;
+    expected_output: string;
+    is_structured: boolean;
+}
+
+export interface KnowledgeSource {
+    id: string;
+    type: "pdf" | "txt" | "url";
+    path: string; // local file path or web URL
+    name: string;
+}
+
 interface UIState {
     // ── Sidebar ──────────────────────────────────────────
     sidebarCollapsed: boolean;
@@ -92,6 +114,19 @@ interface UIState {
     // ── Hydration State ──────────────────────────────────
     _hasHydrated: boolean;
     setHasHydrated: (state: boolean) => void;
+
+    // ── Agent Workspace State ────────────────────────────
+    agentConfig: AgentConfig[];
+    taskConfig: TaskConfig[];
+    activeKnowledgeSources: KnowledgeSource[];
+    selectedAgentId: string | null;
+    selectedTaskId: string | null;
+
+    setAgentConfig: (agents: AgentConfig[]) => void;
+    setTaskConfig: (tasks: TaskConfig[]) => void;
+    setActiveKnowledgeSources: (sources: KnowledgeSource[]) => void;
+    setSelectedAgentId: (id: string | null) => void;
+    setSelectedTaskId: (id: string | null) => void;
 }
 
 
@@ -241,6 +276,19 @@ export const useUIStore = create<UIState>()(
             // ── Hydration State ──────────────────────────────────
             _hasHydrated: false,
             setHasHydrated: (state) => set({ _hasHydrated: state }),
+
+            // ── Agent Workspace State ────────────────────────────
+            agentConfig: [],
+            taskConfig: [],
+            activeKnowledgeSources: [],
+            selectedAgentId: null,
+            selectedTaskId: null,
+
+            setAgentConfig: (agentConfig) => set({ agentConfig }),
+            setTaskConfig: (taskConfig) => set({ taskConfig }),
+            setActiveKnowledgeSources: (activeKnowledgeSources) => set({ activeKnowledgeSources }),
+            setSelectedAgentId: (selectedAgentId) => set({ selectedAgentId }),
+            setSelectedTaskId: (selectedTaskId) => set({ selectedTaskId }),
         }),
         {
             name: 'plot-ui-storage', // key in localStorage
@@ -261,7 +309,12 @@ export const useUIStore = create<UIState>()(
                 // Add API Keys and Vault info so they safely hydrate after initial SSR pass
                 hasVaultPassword: state.hasVaultPassword,
                 vaultEmail: state.vaultEmail,
-                apiKeys: state.apiKeys
+                apiKeys: state.apiKeys,
+
+                // Persist Agent Configs
+                agentConfig: state.agentConfig,
+                taskConfig: state.taskConfig,
+                activeKnowledgeSources: state.activeKnowledgeSources,
             }),
         }
     )

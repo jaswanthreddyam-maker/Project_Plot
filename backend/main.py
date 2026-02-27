@@ -44,6 +44,31 @@ import redis.asyncio as redis_async
 redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0"))
 async_redis_client = redis_async.from_url(os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0"))
 
+from fastapi import UploadFile, File, Form
+import shutil
+
+KNOWLEDGE_DIR = os.path.join(os.path.dirname(__file__), "knowledge")
+os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
+
+class URLUploadRequest(BaseModel):
+    url: str
+
+@app.post("/api/knowledge/upload")
+async def upload_knowledge(file: Optional[UploadFile] = File(None), url: Optional[str] = Form(None)):
+    """
+    Accepts PDF/TXT file uploads or URLs and saves them to the local ./knowledge directory for RAG.
+    """
+    if file:
+        file_path = os.path.join(KNOWLEDGE_DIR, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        return {"status": "success", "type": "file", "path": file_path, "name": file.filename}
+    
+    if url:
+        return {"status": "success", "type": "url", "path": url, "name": url}
+    
+    raise HTTPException(status_code=400, detail="Must provide either a file or a url")
+
 @app.post("/api/tools/execute", status_code=202)
 async def execute_tool(req: ToolExecutionRequest):
     """
@@ -106,11 +131,18 @@ async def stream_execution(request: Request, task_id: str):
     return EventSourceResponse(event_generator())
 
 
+class ResumeRequest(BaseModel):
+    task_id: str
+    feedback: str
+
 @app.post("/api/resume")
-async def resume_execution(request: Request):
+async def resume_execution(req: ResumeRequest):
     """
     Webhook for Asynchronous HITL execution resuming
     """
-    data = await request.json()
-    # Logic to hydrate state and resume
-    return {"status": "ok", "message": "Execution resumed"}
+    # Push feedback to a dedicated Redis queue for this task
+    await async_redis_client.rpush(f"feedback:{req.task_id}", req.feedback)
+    # Expire in case the flow already died
+    await async_redis_client.expire(f"feedback:{req.task_id}", 3600)
+    
+    return {"status": "ok", "message": "Feedback submitted to flow"}
