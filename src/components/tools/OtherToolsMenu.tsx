@@ -5,29 +5,44 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 
 export default function OtherToolsMenu() {
-    const { otherToolsMenuOpen, setOtherToolsMenuOpen, setToolExecutionStart, isToolExecuting } = useUIStore();
+    const {
+        otherToolsMenuOpen,
+        setOtherToolsMenuOpen,
+        setToolExecutionStart,
+        isToolExecuting,
+        codeMentorMode,
+        toggleCodeMentorMode
+    } = useUIStore();
+
     const [localLoading, setLocalLoading] = useState(false);
 
-    // Mock API call to FastAPI backend
-    const triggerTool = async (toolName: string) => {
+    const triggerTool = async (toolId: string) => {
         if (isToolExecuting || localLoading) return;
 
-        setLocalLoading(true);
+        // Force close menu immediately
         setOtherToolsMenuOpen(false);
+
+        if (toolId === "CodeMentor") {
+            toggleCodeMentorMode();
+            return;
+        }
+
+        setLocalLoading(true);
 
         try {
             const res = await fetch("http://localhost:8000/api/tools/execute", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    tool_name: toolName,
+                    tool_name: toolId,
                     arguments: { topic: "AI Agents" } // Example args
                 }),
             });
 
             if (res.ok) {
                 const data = await res.json();
-                setToolExecutionStart(data.task_id, data.execution_id);
+                // Ensure immediate UI mount of ToolExecutionStream
+                setToolExecutionStart(data.task_id, data.execution_id || data.task_id);
             } else {
                 console.error("Failed to start tool execution");
             }
@@ -39,9 +54,9 @@ export default function OtherToolsMenu() {
     };
 
     const tools = [
-        { id: "AIResearch", name: "AI Research", icon: "🔍", desc: "Long-running web research task" },
-        { id: "Automation", name: "Automation", icon: "⚙️", desc: "Trigger background workflows" },
-        { id: "UIUXDesigner", name: "UI/UX Planner", icon: "✨", desc: "Draft multi-component designs" }
+        { id: "CodeMentor", name: "Code Mentor", desc: codeMentorMode ? "Disable Code Mentor mode" : "Enable Code Mentor mode" },
+        { id: "PlotAutonomous", name: "Plot Autonomous", desc: "Long-running autonomous agent workflows" },
+        { id: "UIUXDesigner", name: "UI/UX Planner", desc: "Draft multi-component designs" }
     ];
 
     return (
@@ -64,12 +79,12 @@ export default function OtherToolsMenu() {
                                 onClick={() => triggerTool(tool.id)}
                                 className="flex items-start gap-3 p-3 w-full text-left rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
                             >
-                                <div className="text-xl pt-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                                    {tool.icon}
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                <div className="flex flex-col w-full">
+                                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
                                         {tool.name}
+                                        {tool.id === "CodeMentor" && codeMentorMode && (
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                        )}
                                     </span>
                                     <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
                                         {tool.desc}

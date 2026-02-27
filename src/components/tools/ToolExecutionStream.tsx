@@ -48,7 +48,7 @@ export default function ToolExecutionStream() {
                         break;
 
                     case "chunk":
-                        setChunks(prev => [...prev.slice(-5), data.content]); // Increased to 6 total for better flow
+                        setChunks(prev => [...prev.slice(-4), data.content]); // keep previous 4 chunks + 1 new = 5
                         break;
 
                     case "completed":
@@ -66,7 +66,7 @@ export default function ToolExecutionStream() {
                 }
             } catch (err) {
                 // Fallback for non-JSON strings
-                setChunks(prev => [...prev.slice(-5), event.data]);
+                setChunks(prev => [...prev.slice(-4), event.data]);
             }
         };
 
@@ -135,26 +135,39 @@ export default function ToolExecutionStream() {
                         </div>
 
                         {/* Stream Output */}
-                        <div className="bg-slate-50 dark:bg-slate-950/50 rounded-xl p-3 min-h-[80px] flex flex-col gap-1.5 border border-slate-100 dark:border-slate-800/50 shadow-inner">
+                        <div className="bg-slate-50 border border-slate-100 dark:bg-slate-950/50 dark:border-slate-800/50 rounded-xl p-3 min-h-[120px] shadow-inner relative overflow-hidden flex flex-col justify-end">
                             {error ? (
-                                <span className="text-xs text-red-500 font-mono leading-relaxed italic">
+                                <span className="text-xs text-red-500 font-mono leading-relaxed italic z-10 relative">
                                     {error}
                                 </span>
                             ) : chunks.length > 0 ? (
-                                chunks.map((chunk, i) => (
-                                    <motion.span
-                                        key={`${toolTaskId}-${i}`}
-                                        initial={{ opacity: 0, x: -2 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate flex items-center gap-2"
-                                    >
-                                        <span className="text-indigo-400 opacity-50">⚡</span> {chunk}
-                                    </motion.span>
-                                ))
+                                <div className="flex flex-col gap-2 z-10 relative">
+                                    <AnimatePresence mode="popLayout" initial={false}>
+                                        {chunks.map((chunk, i) => (
+                                            <motion.div
+                                                key={`${toolTaskId}-${i}-${chunk.slice(0, 10)}`}
+                                                layout
+                                                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.9 }}
+                                                transition={{
+                                                    type: "spring",
+                                                    stiffness: 400,
+                                                    damping: 25,
+                                                    mass: 0.8
+                                                }}
+                                                className="bg-white dark:bg-slate-900 rounded-lg p-2.5 shadow-sm border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 font-mono flex items-start gap-2 break-words"
+                                            >
+                                                <span className="text-indigo-400 dark:text-indigo-500 shrink-0 select-none mt-0.5">↳</span>
+                                                <span className="flex-1 whitespace-pre-wrap">{chunk}</span>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+                                </div>
                             ) : (
-                                <div className="flex flex-col gap-2">
-                                    <div className="h-2 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-                                    <div className="h-2 w-16 bg-slate-100 dark:bg-slate-900 rounded animate-pulse" />
+                                <div className="flex flex-col gap-2 z-10 relative">
+                                    <div className="h-8 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg animate-pulse" />
+                                    <div className="h-8 w-[80%] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg animate-pulse" />
                                 </div>
                             )}
                         </div>
