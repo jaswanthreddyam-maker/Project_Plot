@@ -332,7 +332,7 @@ export default function WorkspacePage() {
             )}
 
             <MentorOverlay />
-            <ToolExecutionStream />
+            {activeWorkspace !== "autonomous" && <ToolExecutionStream />}
         </div>
     );
 }
