@@ -11,6 +11,7 @@
  */
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export type ProviderOption = "openai" | "gemini" | "claude" | "ollama" | "grok";
 
@@ -70,35 +71,26 @@ interface UIState {
     // ── Code Mentor Mode ─────────────────────────────────
     codeMentorMode: boolean;
     toggleCodeMentorMode: () => void;
+
+    // ── Other Tools & CrewAI Orchestration State ─────────
+    otherToolsMenuOpen: boolean;
+    setOtherToolsMenuOpen: (open: boolean) => void;
+
+    isToolExecuting: boolean;
+    toolTaskId: string | null;
+    toolExecutionId: string | null;
+    toolExecutionState: string | null; // e.g. "Drafting", "Researching"
+
+    setToolExecutionStart: (taskId: string, executionId: string) => void;
+    setToolExecutionState: (state: string) => void;
+    setToolExecutionEnd: () => void;
+
+    // ── Hydration State ──────────────────────────────────
+    _hasHydrated: boolean;
+    setHasHydrated: (state: boolean) => void;
 }
 
-// ── LocalStorage helpers ──────────────────────────────────
-function loadKeysFromStorage(): Record<string, string> {
-    if (typeof window === "undefined") return {};
-    try {
-        const stored = localStorage.getItem("nexuschat_api_keys");
-        return stored ? JSON.parse(stored) : {};
-    } catch {
-        return {};
-    }
-}
 
-function saveKeysToStorage(keys: Record<string, string>) {
-    if (typeof window === "undefined") return;
-    try {
-        localStorage.setItem("nexuschat_api_keys", JSON.stringify(keys));
-    } catch { /* silent */ }
-}
-
-function hasStoredVaultPassword(): boolean {
-    if (typeof window === "undefined") return false;
-    return !!localStorage.getItem("nexuschat_vault_hash");
-}
-
-function getStoredVaultEmail(): string | null {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("nexuschat_vault_email");
-}
 
 // ── SHA-256 hash using Web Crypto API (deterministic) ─────
 async function sha256Hash(str: string): Promise<string> {
@@ -109,110 +101,160 @@ async function sha256Hash(str: string): Promise<string> {
     return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
-    // ── Sidebar Defaults ─────────────────────────────────
-    sidebarCollapsed: false,
-    toggleSidebar: () =>
-        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-    setSidebarCollapsed: (collapsed) =>
-        set({ sidebarCollapsed: collapsed }),
+export const useUIStore = create<UIState>()(
+    persist(
+        (set, get) => ({
+            // ── Sidebar Defaults ─────────────────────────────────
+            sidebarCollapsed: false,
+            toggleSidebar: () =>
+                set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+            setSidebarCollapsed: (collapsed) =>
+                set({ sidebarCollapsed: collapsed }),
 
-    // ── Providers: all enabled by default ────────────────
-    activeProviders: ["openai", "gemini", "claude", "ollama", "grok"],
-    toggleProvider: (provider) =>
-        set((state) => {
-            const isActive = state.activeProviders.includes(provider);
-            return {
-                activeProviders: isActive
-                    ? state.activeProviders.filter((p) => p !== provider)
-                    : [...state.activeProviders, provider],
-            };
+            // ── Providers: all enabled by default ────────────────
+            activeProviders: ["openai", "gemini", "claude", "ollama", "grok"],
+            toggleProvider: (provider) =>
+                set((state) => {
+                    const isActive = state.activeProviders.includes(provider);
+                    return {
+                        activeProviders: isActive
+                            ? state.activeProviders.filter((p) => p !== provider)
+                            : [...state.activeProviders, provider],
+                    };
+                }),
+            setActiveProviders: (providers) =>
+                set({ activeProviders: providers }),
+
+            // ── Modals ───────────────────────────────────────────
+            settingsOpen: false,
+            setSettingsOpen: (open) => set({ settingsOpen: open }),
+
+            unlockModalOpen: false,
+            setUnlockModalOpen: (open) => set({ unlockModalOpen: open }),
+
+            ollamaModalOpen: false,
+            setOllamaModalOpen: (open) => set({ ollamaModalOpen: open }),
+
+            // ── Vault / API Keys ─────────────────────────────────
+            isVaultUnlocked: false, // always locked on page load
+            hasVaultPassword: false,
+            vaultEmail: null,
+            apiKeys: {},
+
+            createVaultPassword: async (password: string, email: string) => {
+                const hash = await sha256Hash(password);
+                localStorage.setItem("nexuschat_vault_hash", hash);
+                localStorage.setItem("nexuschat_vault_email", email);
+                set({ isVaultUnlocked: true, hasVaultPassword: true, vaultEmail: email });
+            },
+
+            unlockVault: async (password: string): Promise<boolean> => {
+                const storedHash = localStorage.getItem("nexuschat_vault_hash");
+                if (!storedHash) return false;
+                const inputHash = await sha256Hash(password);
+                if (inputHash === storedHash) {
+                    set({ isVaultUnlocked: true });
+                    return true;
+                }
+                return false;
+            },
+
+            lockVault: () => {
+                set({ isVaultUnlocked: false });
+            },
+
+            resetVaultPassword: async (newPassword: string) => {
+                const hash = await sha256Hash(newPassword);
+                localStorage.setItem("nexuschat_vault_hash", hash);
+                set({ isVaultUnlocked: true, hasVaultPassword: true });
+            },
+
+            setApiKey: (provider: string, key: string) => {
+                const current = get().apiKeys;
+                const updated = { ...current, [provider]: key };
+                set({ apiKeys: updated });
+            },
+
+            removeApiKey: (provider: string) => {
+                const current = get().apiKeys;
+                const updated = { ...current };
+                delete updated[provider];
+                set({ apiKeys: updated });
+            },
+
+            getApiKey: (provider: string) => {
+                return get().apiKeys[provider];
+            },
+
+            // ── Conversations ────────────────────────────────────
+            conversations: [],
+            setConversations: (conversations) => set({ conversations }),
+            addConversation: (conversation) =>
+                set((state) => ({
+                    conversations: [
+                        conversation,
+                        ...state.conversations.filter((c) => c.id !== conversation.id),
+                    ],
+                })),
+            removeConversation: (id) =>
+                set((state) => ({
+                    conversations: state.conversations.filter((c) => c.id !== id),
+                })),
+            clearConversations: () => set({ conversations: [] }),
+
+            comparisonMode: false,
+            setComparisonMode: (comparisonMode) => set({ comparisonMode }),
+
+            codeMentorMode: false,
+            toggleCodeMentorMode: () => set((s) => ({ codeMentorMode: !s.codeMentorMode })),
+
+            // ── Other Tools & CrewAI Orchestration State ─────────
+            otherToolsMenuOpen: false,
+            setOtherToolsMenuOpen: (open) => set({ otherToolsMenuOpen: open }),
+
+            isToolExecuting: false,
+            toolTaskId: null,
+            toolExecutionId: null,
+            toolExecutionState: null,
+
+            setToolExecutionStart: (taskId, executionId) => set({
+                isToolExecuting: true,
+                toolTaskId: taskId,
+                toolExecutionId: executionId,
+                toolExecutionState: "Initializing..."
+            }),
+            setToolExecutionState: (state) => set({ toolExecutionState: state }),
+            setToolExecutionEnd: () => set({
+                isToolExecuting: false,
+                toolTaskId: null,
+                toolExecutionId: null,
+                toolExecutionState: null
+            }),
+
+            // ── Hydration State ──────────────────────────────────
+            _hasHydrated: false,
+            setHasHydrated: (state) => set({ _hasHydrated: state }),
         }),
-    setActiveProviders: (providers) =>
-        set({ activeProviders: providers }),
-
-    // ── Modals ───────────────────────────────────────────
-    settingsOpen: false,
-    setSettingsOpen: (open) => set({ settingsOpen: open }),
-
-    unlockModalOpen: false,
-    setUnlockModalOpen: (open) => set({ unlockModalOpen: open }),
-
-    ollamaModalOpen: false,
-    setOllamaModalOpen: (open) => set({ ollamaModalOpen: open }),
-
-    // ── Vault / API Keys ─────────────────────────────────
-    isVaultUnlocked: false, // always locked on page load
-    hasVaultPassword: hasStoredVaultPassword(),
-    vaultEmail: getStoredVaultEmail(),
-    apiKeys: loadKeysFromStorage(),
-
-    createVaultPassword: async (password: string, email: string) => {
-        const hash = await sha256Hash(password);
-        localStorage.setItem("nexuschat_vault_hash", hash);
-        localStorage.setItem("nexuschat_vault_email", email);
-        set({ isVaultUnlocked: true, hasVaultPassword: true, vaultEmail: email });
-    },
-
-    unlockVault: async (password: string): Promise<boolean> => {
-        const storedHash = localStorage.getItem("nexuschat_vault_hash");
-        if (!storedHash) return false;
-        const inputHash = await sha256Hash(password);
-        if (inputHash === storedHash) {
-            set({ isVaultUnlocked: true });
-            return true;
+        {
+            name: 'plot-ui-storage', // key in localStorage
+            onRehydrateStorage: (state) => {
+                return (state, error) => {
+                    if (state) {
+                        state.setHasHydrated(true);
+                    }
+                };
+            },
+            partialize: (state) => ({
+                // ONLY persist these properties
+                isToolExecuting: state.isToolExecuting,
+                toolTaskId: state.toolTaskId,
+                toolExecutionId: state.toolExecutionId,
+                toolExecutionState: state.toolExecutionState,
+                // Add API Keys and Vault info so they safely hydrate after initial SSR pass
+                hasVaultPassword: state.hasVaultPassword,
+                vaultEmail: state.vaultEmail,
+                apiKeys: state.apiKeys
+            }),
         }
-        return false;
-    },
-
-    lockVault: () => {
-        set({ isVaultUnlocked: false });
-    },
-
-    resetVaultPassword: async (newPassword: string) => {
-        const hash = await sha256Hash(newPassword);
-        localStorage.setItem("nexuschat_vault_hash", hash);
-        set({ isVaultUnlocked: true, hasVaultPassword: true });
-    },
-
-    setApiKey: (provider: string, key: string) => {
-        const current = get().apiKeys;
-        const updated = { ...current, [provider]: key };
-        saveKeysToStorage(updated);
-        set({ apiKeys: updated });
-    },
-
-    removeApiKey: (provider: string) => {
-        const current = get().apiKeys;
-        const updated = { ...current };
-        delete updated[provider];
-        saveKeysToStorage(updated);
-        set({ apiKeys: updated });
-    },
-
-    getApiKey: (provider: string) => {
-        return get().apiKeys[provider];
-    },
-
-    // ── Conversations ────────────────────────────────────
-    conversations: [],
-    setConversations: (conversations) => set({ conversations }),
-    addConversation: (conversation) =>
-        set((state) => ({
-            conversations: [
-                conversation,
-                ...state.conversations.filter((c) => c.id !== conversation.id),
-            ],
-        })),
-    removeConversation: (id) =>
-        set((state) => ({
-            conversations: state.conversations.filter((c) => c.id !== id),
-        })),
-    clearConversations: () => set({ conversations: [] }),
-
-    comparisonMode: false,
-    setComparisonMode: (comparisonMode) => set({ comparisonMode }),
-
-    codeMentorMode: false,
-    toggleCodeMentorMode: () => set((s) => ({ codeMentorMode: !s.codeMentorMode })),
-}));
+    )
+);

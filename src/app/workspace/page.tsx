@@ -18,6 +18,9 @@ import ComparisonToggle from "@/components/workspace/ComparisonToggle";
 import AssistantToggle from "@/components/workspace/AssistantToggle";
 import CodeMentorToggle from "@/components/workspace/CodeMentorToggle";
 import MentorOverlay from "@/components/mentor/MentorOverlay";
+import OtherToolsToggle from "@/components/tools/OtherToolsToggle";
+import OtherToolsMenu from "@/components/tools/OtherToolsMenu";
+import ToolExecutionStream from "@/components/tools/ToolExecutionStream";
 
 const ALL_PROVIDERS: { id: ProviderOption; label: string }[] = [
     { id: "openai", label: "Openai" },
@@ -201,6 +204,10 @@ export default function WorkspacePage() {
 
                 <div className="flex items-center gap-3">
                     <AssistantToggle />
+                    <div className="relative flex items-center gap-3">
+                        <OtherToolsToggle />
+                        <OtherToolsMenu />
+                    </div>
                     <CodeMentorToggle />
                     <ComparisonToggle />
                     {session?.user ? (
@@ -316,6 +323,7 @@ export default function WorkspacePage() {
 
             <PromptInput />
             <MentorOverlay />
+            <ToolExecutionStream />
         </div>
     );
 }

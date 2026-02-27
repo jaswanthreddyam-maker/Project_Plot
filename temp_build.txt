@@ -1,0 +1,76 @@
+
+> plot@0.1.0 build
+> prisma generate && next build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v5.22.0) to .\node_modules\@prisma\client in 112ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to react to database changes in your app as they happen? Discover how with Pulse: https://pris.ly/tip-1-pulse
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 2 errors:
+./src/components/tools/OtherToolsMenu.tsx:4:1
+Module not found: Can't resolve 'framer-motion'
+[0m [90m 2 |[39m
+ [90m 3 |[39m [36mimport[39m { useUIStore } [36mfrom[39m [32m"@/store/uiStore"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 4 |[39m [36mimport[39m { motion[33m,[39m [33mAnimatePresence[39m } [36mfrom[39m [32m"framer-motion"[39m[33m;[39m
+ [90m   |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 5 |[39m [36mimport[39m { useState } [36mfrom[39m [32m"react"[39m[33m;[39m
+ [90m 6 |[39m
+ [90m 7 |[39m [36mexport[39m [36mdefault[39m [36mfunction[39m [33mOtherToolsMenu[39m() {[0m
+
+
+
+Import traces:
+  Client Component Browser:
+    ./src/components/tools/OtherToolsMenu.tsx [Client Component Browser]
+    ./src/app/workspace/page.tsx [Client Component Browser]
+    ./src/app/workspace/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/tools/OtherToolsMenu.tsx [Client Component SSR]
+    ./src/app/workspace/page.tsx [Client Component SSR]
+    ./src/app/workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./src/components/tools/ToolExecutionStream.tsx:5:1
+Module not found: Can't resolve 'framer-motion'
+[0m [90m 3 |[39m [36mimport[39m { useEffect[33m,[39m useState } [36mfrom[39m [32m"react"[39m[33m;[39m
+ [90m 4 |[39m [36mimport[39m { useUIStore } [36mfrom[39m [32m"@/store/uiStore"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 5 |[39m [36mimport[39m { motion[33m,[39m [33mAnimatePresence[39m } [36mfrom[39m [32m"framer-motion"[39m[33m;[39m
+ [90m   |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 6 |[39m
+ [90m 7 |[39m [36mexport[39m [36mdefault[39m [36mfunction[39m [33mToolExecutionStream[39m() {
+ [90m 8 |[39m     [36mconst[39m {[0m
+
+
+
+Import traces:
+  Client Component Browser:
+    ./src/components/tools/ToolExecutionStream.tsx [Client Component Browser]
+    ./src/app/workspace/page.tsx [Client Component Browser]
+    ./src/app/workspace/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/tools/ToolExecutionStream.tsx [Client Component SSR]
+    ./src/app/workspace/page.tsx [Client Component SSR]
+    ./src/app/workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (./src/components/tools/OtherToolsMenu.tsx:4:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./src/components/tools/ToolExecutionStream.tsx:5:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
