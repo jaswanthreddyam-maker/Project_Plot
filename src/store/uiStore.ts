@@ -64,6 +64,10 @@ interface UIState {
     removeConversation: (id: string) => void;
     clearConversations: () => void;
 
+    // ── Workspace Routing ────────────────────────────────
+    activeWorkspace: "chat" | "autonomous";
+    setActiveWorkspace: (workspace: "chat" | "autonomous") => void;
+
     // ── Smart Comparison Mode ────────────────────────────
     comparisonMode: boolean;
     setComparisonMode: (enabled: boolean) => void;
@@ -202,6 +206,9 @@ export const useUIStore = create<UIState>()(
                 })),
             clearConversations: () => set({ conversations: [] }),
 
+            activeWorkspace: "chat",
+            setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
+
             comparisonMode: false,
             setComparisonMode: (comparisonMode) => set({ comparisonMode }),
 
@@ -246,6 +253,7 @@ export const useUIStore = create<UIState>()(
             },
             partialize: (state) => ({
                 // ONLY persist these properties
+                activeWorkspace: state.activeWorkspace,
                 isToolExecuting: state.isToolExecuting,
                 toolTaskId: state.toolTaskId,
                 toolExecutionId: state.toolExecutionId,

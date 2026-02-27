@@ -11,23 +11,27 @@ export default function OtherToolsMenu() {
         setToolExecutionStart,
         isToolExecuting,
         codeMentorMode,
-        toggleCodeMentorMode
+        toggleCodeMentorMode,
+        setActiveWorkspace
     } = useUIStore();
 
-    const [localLoading, setLocalLoading] = useState(false);
+    const [loadingTool, setLoadingTool] = useState<string | null>(null);
 
     const triggerTool = async (toolId: string) => {
-        if (isToolExecuting || localLoading) return;
-
-        // Force close menu immediately
-        setOtherToolsMenuOpen(false);
+        if (isToolExecuting || loadingTool) return;
 
         if (toolId === "CodeMentor") {
+            // Force close menu immediately for mentor only
+            setOtherToolsMenuOpen(false);
             toggleCodeMentorMode();
             return;
         }
 
-        setLocalLoading(true);
+        setLoadingTool(toolId);
+
+        if (toolId === "PlotAutonomous") {
+            setActiveWorkspace("autonomous");
+        }
 
         try {
             const res = await fetch("http://localhost:8000/api/tools/execute", {
@@ -43,20 +47,20 @@ export default function OtherToolsMenu() {
                 const data = await res.json();
                 // Ensure immediate UI mount of ToolExecutionStream
                 setToolExecutionStart(data.task_id, data.execution_id || data.task_id);
+                setOtherToolsMenuOpen(false); // Close menu after success
             } else {
                 console.error("Failed to start tool execution");
             }
         } catch (error) {
             console.error("API error:", error);
         } finally {
-            setLocalLoading(false);
+            setLoadingTool(null);
         }
     };
 
     const tools = [
         { id: "CodeMentor", name: "Code Mentor", desc: codeMentorMode ? "Disable Code Mentor mode" : "Enable Code Mentor mode" },
-        { id: "PlotAutonomous", name: "Plot Autonomous", desc: "Long-running autonomous agent workflows" },
-        { id: "UIUXDesigner", name: "UI/UX Planner", desc: "Draft multi-component designs" }
+        { id: "PlotAutonomous", name: "Plot Autonomous", desc: "Long-running autonomous agent workflows" }
     ];
 
     return (
@@ -81,7 +85,15 @@ export default function OtherToolsMenu() {
                             >
                                 <div className="flex flex-col w-full">
                                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                                        {tool.name}
+                                        <div className="flex items-center gap-2">
+                                            {tool.name}
+                                            {loadingTool === tool.id && (
+                                                <span className="flex items-center gap-1 text-[10px] text-indigo-500 font-medium">
+                                                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full" />
+                                                    Starting...
+                                                </span>
+                                            )}
+                                        </div>
                                         {tool.id === "CodeMentor" && codeMentorMode && (
                                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                         )}

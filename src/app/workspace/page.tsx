@@ -21,6 +21,7 @@ import MentorOverlay from "@/components/mentor/MentorOverlay";
 import OtherToolsToggle from "@/components/tools/OtherToolsToggle";
 import OtherToolsMenu from "@/components/tools/OtherToolsMenu";
 import ToolExecutionStream from "@/components/tools/ToolExecutionStream";
+import AutonomousWorkspace from "@/components/workspace/AutonomousWorkspace";
 
 const ALL_PROVIDERS: { id: ProviderOption; label: string }[] = [
     { id: "openai", label: "Openai" },
@@ -147,6 +148,7 @@ function ImageProviderCard({
 
 export default function WorkspacePage() {
     const isMobile = useIsMobile();
+    const activeWorkspace = useUIStore((s) => s.activeWorkspace);
     const activeProviders = useUIStore((s) => s.activeProviders);
     const setActiveProviders = useUIStore((s) => s.setActiveProviders);
     const toggleProvider = useUIStore((s) => s.toggleProvider);
@@ -220,108 +222,115 @@ export default function WorkspacePage() {
                 </div>
             </header>
 
-            <div className="px-6 pb-2">
-                <div className="flex flex-wrap gap-2">
-                    {AVAILABLE_PROVIDERS.map((provider) => {
-                        const isActive = activeProviders.includes(provider.id);
-                        return (
-                            <button
-                                key={provider.id}
-                                suppressHydrationWarning
-                                onClick={() => toggleProvider(provider.id)}
-                                className={`
+            {activeWorkspace === "autonomous" ? (
+                <AutonomousWorkspace />
+            ) : (
+                <>
+                    <div className="px-6 pb-2">
+                        <div className="flex flex-wrap gap-2">
+                            {AVAILABLE_PROVIDERS.map((provider) => {
+                                const isActive = activeProviders.includes(provider.id);
+                                return (
+                                    <button
+                                        key={provider.id}
+                                        suppressHydrationWarning
+                                        onClick={() => toggleProvider(provider.id)}
+                                        className={`
                                     px-4 py-1.5 text-sm rounded-full border transition-all duration-200
                                     ${isActive
-                                        ? "bg-gray-800 text-white border-gray-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200"
-                                        : "bg-white text-gray-600 border-gray-300 hover:border-gray-400 dark:bg-[#171717] dark:text-gray-400 dark:border-slate-700 dark:hover:border-slate-500"
-                                    }
+                                                ? "bg-gray-800 text-white border-gray-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200"
+                                                : "bg-white text-gray-600 border-gray-300 hover:border-gray-400 dark:bg-[#171717] dark:text-gray-400 dark:border-slate-700 dark:hover:border-slate-500"
+                                            }
                                 `}
-                            >
-                                {provider.label}
-                            </button>
-                        );
-                    })}
-                </div>
+                                    >
+                                        {provider.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
 
-                {disabledProviders.length > 0 && (
-                    <p className="text-sm text-orange-500 mt-2">
-                        Disabled providers: {disabledProviders.map((provider) => provider.id).join(", ")}
-                    </p>
-                )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-                {activeProviders.length === 0 ? (
-                    <div className="flex items-center justify-center h-64">
-                        <p className="text-gray-400 dark:text-gray-500">
-                            No providers selected. Click a provider button above to activate it.
-                        </p>
+                        {disabledProviders.length > 0 && (
+                            <p className="text-sm text-orange-500 mt-2">
+                                Disabled providers: {disabledProviders.map((provider) => provider.id).join(", ")}
+                            </p>
+                        )}
                     </div>
-                ) : responseSets.length === 0 ? (
-                    <div className={`grid ${idleGridClasses} gap-4`}>
-                        {activeProviders.map((provider) => (
-                            <StreamColumn key={provider} provider={provider} emptyMessage="Start a conversation." />
-                        ))}
+
+                    <div className="flex-1 overflow-y-auto px-6 py-4">
+                        {activeProviders.length === 0 ? (
+                            <div className="flex items-center justify-center h-64">
+                                <p className="text-gray-400 dark:text-gray-500">
+                                    No providers selected. Click a provider button above to activate it.
+                                </p>
+                            </div>
+                        ) : responseSets.length === 0 ? (
+                            <div className={`grid ${idleGridClasses} gap-4`}>
+                                {activeProviders.map((provider) => (
+                                    <StreamColumn key={provider} provider={provider} emptyMessage="Start a conversation." />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {responseSets.map((responseSet) => {
+                                    const visibleProviders = responseSet.providers.filter((provider) =>
+                                        activeProviders.includes(provider as ProviderOption)
+                                    );
+                                    const setGridClasses = gridClassesForCount(visibleProviders.length);
+
+                                    return (
+                                        <section key={responseSet.id} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-[#171717] transition-colors">
+                                            <div className="mb-4 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-gray-700/50 max-w-3xl">
+                                                <p className="text-sm text-gray-700 dark:text-gray-300">{responseSet.prompt}</p>
+                                            </div>
+
+                                            {visibleProviders.length === 0 ? (
+                                                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+                                                    <p className="text-sm text-gray-500">
+                                                        All providers for this response set are currently disabled.
+                                                        Re-enable a provider above to show its column.
+                                                    </p>
+                                                </div>
+                                            ) : responseSet.mode === "text" ? (
+                                                <div className={`grid ${setGridClasses} gap-4`}>
+                                                    {visibleProviders.map((provider) => {
+                                                        const response = responseSet.responses[provider];
+                                                        return (
+                                                            <StreamColumn
+                                                                key={`${responseSet.id}-${provider}`}
+                                                                provider={provider}
+                                                                textOverride={response?.currentText || ""}
+                                                                isStreamingOverride={response?.isStreaming || false}
+                                                                errorOverride={response?.error || null}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className={`grid ${setGridClasses} gap-4`}>
+                                                    {visibleProviders.map((provider) => (
+                                                        <ImageProviderCard
+                                                            key={`${responseSet.id}-${provider}`}
+                                                            provider={provider}
+                                                            state={responseSet.images[provider]}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {comparisonMode && responseSet.mode === "text" && (
+                                                <RefereeSummaryBox responseSet={responseSet} />
+                                            )}
+                                        </section>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="space-y-6">
-                        {responseSets.map((responseSet) => {
-                            const visibleProviders = responseSet.providers.filter((provider) =>
-                                activeProviders.includes(provider as ProviderOption)
-                            );
-                            const setGridClasses = gridClassesForCount(visibleProviders.length);
 
-                            return (
-                                <section key={responseSet.id} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-[#171717] transition-colors">
-                                    <div className="mb-4 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-gray-700/50 max-w-3xl">
-                                        <p className="text-sm text-gray-700 dark:text-gray-300">{responseSet.prompt}</p>
-                                    </div>
+                    <PromptInput />
+                </>
+            )}
 
-                                    {visibleProviders.length === 0 ? (
-                                        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
-                                            <p className="text-sm text-gray-500">
-                                                All providers for this response set are currently disabled.
-                                                Re-enable a provider above to show its column.
-                                            </p>
-                                        </div>
-                                    ) : responseSet.mode === "text" ? (
-                                        <div className={`grid ${setGridClasses} gap-4`}>
-                                            {visibleProviders.map((provider) => {
-                                                const response = responseSet.responses[provider];
-                                                return (
-                                                    <StreamColumn
-                                                        key={`${responseSet.id}-${provider}`}
-                                                        provider={provider}
-                                                        textOverride={response?.currentText || ""}
-                                                        isStreamingOverride={response?.isStreaming || false}
-                                                        errorOverride={response?.error || null}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className={`grid ${setGridClasses} gap-4`}>
-                                            {visibleProviders.map((provider) => (
-                                                <ImageProviderCard
-                                                    key={`${responseSet.id}-${provider}`}
-                                                    provider={provider}
-                                                    state={responseSet.images[provider]}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {comparisonMode && responseSet.mode === "text" && (
-                                        <RefereeSummaryBox responseSet={responseSet} />
-                                    )}
-                                </section>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
-            <PromptInput />
             <MentorOverlay />
             <ToolExecutionStream />
         </div>
