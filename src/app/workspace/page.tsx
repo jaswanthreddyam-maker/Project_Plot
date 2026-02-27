@@ -6,10 +6,11 @@
  */
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useUIStore, ProviderOption } from "@/store/uiStore";
 import { useChatStore, ProviderImageState, ResponseSet } from "@/store/chatStore";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import StreamColumn from "@/components/workspace/StreamColumn";
 import PromptInput from "@/components/workspace/PromptInput";
 import ProfileDropdown from "@/components/workspace/ProfileDropdown";
@@ -142,7 +143,9 @@ function ImageProviderCard({
 }
 
 export default function WorkspacePage() {
+    const isMobile = useIsMobile();
     const activeProviders = useUIStore((s) => s.activeProviders);
+    const setActiveProviders = useUIStore((s) => s.setActiveProviders);
     const toggleProvider = useUIStore((s) => s.toggleProvider);
     const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
     const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
@@ -150,9 +153,26 @@ export default function WorkspacePage() {
     const responseSets = useChatStore((s) => s.responseSets);
     const { data: session } = useSession();
 
+    const AVAILABLE_PROVIDERS = useMemo(() => {
+        if (isMobile) return ALL_PROVIDERS.filter((p) => p.id !== "ollama");
+        return ALL_PROVIDERS;
+    }, [isMobile]);
+
+    useEffect(() => {
+        if (isMobile) {
+            if (activeProviders.includes("ollama")) {
+                const newProviders = activeProviders.filter((p) => p !== "ollama");
+                if (!newProviders.includes("gemini")) newProviders.push("gemini");
+                setActiveProviders(newProviders);
+            } else if (activeProviders.length === 0) {
+                setActiveProviders(["gemini"]);
+            }
+        }
+    }, [isMobile, activeProviders, setActiveProviders]);
+
     const disabledProviders = useMemo(
-        () => ALL_PROVIDERS.filter((provider) => !activeProviders.includes(provider.id)),
-        [activeProviders]
+        () => AVAILABLE_PROVIDERS.filter((provider) => !activeProviders.includes(provider.id)),
+        [activeProviders, AVAILABLE_PROVIDERS]
     );
 
     const idleGridClasses = useMemo(
@@ -195,7 +215,7 @@ export default function WorkspacePage() {
 
             <div className="px-6 pb-2">
                 <div className="flex flex-wrap gap-2">
-                    {ALL_PROVIDERS.map((provider) => {
+                    {AVAILABLE_PROVIDERS.map((provider) => {
                         const isActive = activeProviders.includes(provider.id);
                         return (
                             <button

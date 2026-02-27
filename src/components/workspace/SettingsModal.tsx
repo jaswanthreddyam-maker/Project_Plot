@@ -11,8 +11,9 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useUIStore, ProviderOption } from "@/store/uiStore";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import OllamaSetupModal from "./OllamaSetupModal";
 
 const PROVIDERS: { id: ProviderOption; label: string; placeholder: string }[] = [
@@ -597,13 +598,19 @@ function ProviderToggles({ activeProviders, toggleProvider, onOllamaActivate }: 
     toggleProvider: (p: ProviderOption) => void;
     onOllamaActivate: () => void;
 }) {
-    const providers: { id: ProviderOption; label: string }[] = [
-        { id: "openai", label: "OpenAI" },
-        { id: "gemini", label: "Gemini" },
-        { id: "claude", label: "Claude" },
-        { id: "grok", label: "Grok" },
-        { id: "ollama", label: "Ollama" },
-    ];
+    const isMobile = useIsMobile();
+
+    const providers: { id: ProviderOption; label: string }[] = useMemo(() => {
+        const list: { id: ProviderOption; label: string }[] = [
+            { id: "openai", label: "OpenAI" },
+            { id: "gemini", label: "Gemini" },
+            { id: "claude", label: "Claude" },
+            { id: "grok", label: "Grok" },
+            { id: "ollama", label: "Ollama" },
+        ];
+        if (isMobile) return list.filter((p) => p.id !== "ollama");
+        return list;
+    }, [isMobile]);
 
     const handleToggle = (id: ProviderOption) => {
         if (id === "ollama") {
