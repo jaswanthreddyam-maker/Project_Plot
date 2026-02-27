@@ -169,7 +169,7 @@ function LoginPageContent() {
                                         onChange={(e) => setName(e.target.value)}
                                         placeholder="Your name"
                                         autoComplete="off"
-                                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500 transition-colors"
+                                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-[#1a1a1a] placeholder:text-gray-400 outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500 transition-all"
                                     />
                                 </div>
                             )}
@@ -185,7 +185,7 @@ function LoginPageContent() {
                                     placeholder="you@example.com"
                                     required
                                     autoComplete="off"
-                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500 transition-colors"
+                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-[#1a1a1a] placeholder:text-gray-400 outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500 transition-all"
                                 />
                             </div>
 
@@ -203,7 +203,7 @@ function LoginPageContent() {
                                     autoComplete="off"
                                     data-lpignore="true"
                                     data-1p-ignore
-                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500 transition-colors"
+                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-[#1a1a1a] placeholder:text-gray-400 outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500 transition-all"
                                 />
                             </div>
 
