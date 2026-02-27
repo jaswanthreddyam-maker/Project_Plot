@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from crewai.flow.flow import Flow, start, listen
 from crewai.flow.persistence.decorators import persist
+from crewai import Agent, Task, Crew, Process, LLM
 
 import json
 import redis
@@ -14,6 +15,8 @@ class PlotState(BaseModel):
     final_output: str = ""
     knowledge_sources: list = []
     execution_id: str = ""
+    agents_config: list = []
+    tasks_config: list = []
 
 @persist()
 class PlotAutonomousFlow(Flow[PlotState]):
@@ -25,14 +28,67 @@ class PlotAutonomousFlow(Flow[PlotState]):
         return "Workflow initialized"
 
     @listen(initialize_workflow)
-    def execute_core_logic(self, init_result):
+    def assemble_and_run_crew(self, init_result):
+        self.state.status = "Assembling dynamic crew..."
+        
+        if not self.state.agents_config or not self.state.tasks_config:
+            self.state.status = "Error: Missing agents or tasks configuration."
+            return "Execution failed due to missing configuration."
+            
+        crew_agents = []
+        for ac in self.state.agents_config:
+            provider_str = ac.get("provider", "openai").lower()
+            model_name = "gpt-4o-mini"
+            if provider_str == "gemini":
+                model_name = "gemini/gemini-1.5-pro-latest"
+            elif provider_str == "claude":
+                model_name = "anthropic/claude-3-5-sonnet-20241022"
+            elif provider_str == "ollama":
+                model_name = "ollama/llama3"
+            elif provider_str == "grok":
+                model_name = "xai/grok-beta"
+                
+            llm = LLM(model=model_name)
+            
+            agent = Agent(
+                role=ac.get("role", "Assistant"),
+                goal=ac.get("goal", "Help the user"),
+                backstory=ac.get("backstory", "A helpful AI assistant."),
+                llm=llm,
+                knowledge_sources=self.state.knowledge_sources if self.state.knowledge_sources else None,
+                verbose=True,
+                allow_delegation=False
+            )
+            crew_agents.append(agent)
+            
+        crew_tasks = []
+        for tc in self.state.tasks_config:
+            # We assign all agents or the first agent to the task by default
+            task = Task(
+                description=tc.get("description", "Perform task"),
+                expected_output=tc.get("expected_output", "Task result"),
+                agent=crew_agents[0] if crew_agents else None 
+            )
+            crew_tasks.append(task)
+            
+        crew = Crew(
+            agents=crew_agents,
+            tasks=crew_tasks,
+            process=Process.sequential,
+            verbose=True,
+            # Assigning the knowledge sources to the entire Crew context instead as fallback
+            knowledge_sources=self.state.knowledge_sources if self.state.knowledge_sources else None
+        )
+        
         self.state.status = "Executing core workflow logic..."
-        print(f"[PlotAutonomousFlow] Executing logic based on: {init_result}")
-        import time
-        time.sleep(2)
-        return "Draft complete. Ready for review."
+        print(f"[PlotAutonomousFlow] Crew Kickoff Started")
+        
+        # This blocks until CrewAI finishes its steps. Redis listeners trap the updates!
+        crew_result = crew.kickoff()
+        
+        return str(crew_result.raw)
 
-    @listen(execute_core_logic)
+    @listen(assemble_and_run_crew)
     def request_human_feedback(self, draft_result):
         # Emit the intervention signal to the frontend
         stream_channel = f"stream:{self.state.execution_id}"

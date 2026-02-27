@@ -67,6 +67,10 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
                 flow.state.user_input = objective
                 flow.state.execution_id = execution_id
                 
+                # Dynamically set frontend configuration for Crew creation
+                flow.state.agents_config = arguments.get("agents", [])
+                flow.state.tasks_config = arguments.get("tasks", [])
+                
                 # In a real CrewAI setup, you inject these sources into the Agents or the Crew itself.
                 # For this scaffolding, we pass it into the Flow state.
                 flow.state.knowledge_sources = knowledge_sources
