@@ -180,7 +180,9 @@ export default function AgentDashboard() {
                 const data = await res.json();
                 setToolExecutionStart(data.task_id, data.execution_id || data.task_id);
             } else {
-                setTerminalError("Failed to deploy Crew. Check backend connection.");
+                const errText = await res.text();
+                setTerminalError(errText || "Failed to deploy Crew. Check backend connection.");
+                console.error("Backend Error:", errText);
             }
         } catch (err) {
             setTerminalError("Network error deploying Crew.");
@@ -256,6 +258,30 @@ export default function AgentDashboard() {
                             ) : "🚀 Deploy Crew"}
                         </button>
                     </div>
+
+                    {/* Inline Error Alert */}
+                    <AnimatePresence>
+                        {terminalError && !isToolExecuting && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="mb-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl"
+                            >
+                                <div className="flex items-start gap-3">
+                                    <svg className="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-red-800 dark:text-red-400">Deployment Failed</h4>
+                                        <p className="text-xs text-red-600 dark:text-red-300 mt-1 break-words font-mono">
+                                            {terminalError}
+                                        </p>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
                         {/* Agent Form */}
