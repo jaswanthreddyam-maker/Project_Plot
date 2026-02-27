@@ -19,6 +19,7 @@ datasource db {
 model User {
   id            String          @id @default(cuid())
   email         String          @unique
+  emailVerified DateTime?
   passwordHash  String?         // bcrypt hash (null for OAuth users)
   name          String?
   image         String?         // Profile image URL from OAuth
