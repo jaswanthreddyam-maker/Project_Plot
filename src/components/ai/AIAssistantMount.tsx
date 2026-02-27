@@ -8,7 +8,6 @@
  * crashes, the main application continues operating normally.
  *
  * Responsibilities:
- *   - Mounts the floating action button (AssistantBubble)
  *   - Conditionally renders the chat overlay (AssistantOverlay)
  *   - Initializes background context gathering
  *   - Starts the telemetry flush timer
@@ -16,7 +15,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { AssistantBubble } from "./AssistantBubble";
 import { AssistantOverlay } from "./AssistantOverlay";
 import { usePlotContextGathering } from "@/hooks/usePlotContextGathering";
 import { initTelemetry, stopTelemetry } from "@/core/ai/telemetry";
@@ -30,10 +28,5 @@ export function AIAssistantMount() {
         return () => stopTelemetry();
     }, []);
 
-    return (
-        <>
-            <AssistantBubble />
-            <AssistantOverlay getContext={getContext} />
-        </>
-    );
+    return <AssistantOverlay getContext={getContext} />;
 }
