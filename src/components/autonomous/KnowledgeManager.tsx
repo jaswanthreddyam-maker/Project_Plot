@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useUIStore } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function KnowledgeManager() {
@@ -38,7 +39,7 @@ export default function KnowledgeManager() {
         }
 
         try {
-            const res = await fetch("http://localhost:8000/api/knowledge/upload", {
+            const res = await fetch(`${API_BASE}/api/knowledge/upload`, {
                 method: "POST",
                 body: formData,
             });
@@ -179,8 +180,8 @@ export default function KnowledgeManager() {
                                 >
                                     <div className="flex items-center gap-3 overflow-hidden">
                                         <div className={`p-1.5 rounded-md flex-shrink-0 ${source.type === 'pdf' ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400' :
-                                                source.type === 'txt' ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' :
-                                                    'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'
+                                            source.type === 'txt' ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' :
+                                                'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'
                                             }`}>
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 {source.type === 'url' ? (

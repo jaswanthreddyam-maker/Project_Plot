@@ -36,13 +36,36 @@ from routers.workspace import router as workspace_router
 app.include_router(workspace_router)
 
 # Allow Next.js frontend to talk to FastAPI
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, replace with specific Vercel/Next.js origin
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
+
+import logging
+import time
+
+logger = logging.getLogger("api_logger")
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(ch)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    logger.info(f"Incoming request: {request.method} {request.url.path}")
+    response = await call_next(request)
+    process_time = (time.time() - start_time) * 1000
+    logger.info(f"Completed response: {response.status_code} in {process_time:.2f}ms")
+    return response
 
 # Custom Middleware to disable Proxy Buffering for SSE
 @app.middleware("http")
@@ -158,8 +181,9 @@ async def stream_traces(request: Request, execution_id: str):
                     _, event_bytes = result
                     event_data = event_bytes.decode('utf-8')
                     
-                    if event_data == "__DONE__":
-                        yield {"data": json.dumps({"type": "status", "content": "Execution finished"})}
+                    if event_data.startswith("__DONE__"):
+                        result_content = event_data[8:]  # Everything after "__DONE__"
+                        yield {"data": json.dumps({"type": "completed", "content": "Execution finished", "result": result_content})}
                         break
                     if event_data.startswith("__ERROR__"):
                         yield {"data": json.dumps({"type": "error", "content": event_data[9:]})}

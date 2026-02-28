@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUIStore } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
  * Tools & Integrations — Enterprise-grade integrations dashboard
@@ -175,7 +176,7 @@ export default function ToolsIntegrations() {
     useEffect(() => {
         const fetchIntegrations = async () => {
             try {
-                const res = await fetch("http://localhost:8000/api/vault/list");
+                const res = await fetch(`${API_BASE}/api/vault/list`);
                 if (res.ok) {
                     const data = await res.json();
 
@@ -401,7 +402,7 @@ export default function ToolsIntegrations() {
                                                             if (!token) return;
                                                             setLoadingAction(`connect-${tool.id}`);
                                                             try {
-                                                                const res = await fetch("http://localhost:8000/api/vault/save", {
+                                                                const res = await fetch(`${API_BASE}/api/vault/save`, {
                                                                     method: "POST",
                                                                     headers: { "Content-Type": "application/json" },
                                                                     body: JSON.stringify({
@@ -431,7 +432,7 @@ export default function ToolsIntegrations() {
                                                             onClick={async () => {
                                                                 setLoadingAction(`disconnect-${tool.id}`);
                                                                 try {
-                                                                    const res = await fetch(`http://localhost:8000/api/vault/delete/${getKeyName(tool.id)}`, {
+                                                                    const res = await fetch(`${API_BASE}/api/vault/delete/${getKeyName(tool.id)}`, {
                                                                         method: "DELETE"
                                                                     });
                                                                     if (res.ok) {
@@ -495,7 +496,7 @@ export default function ToolsIntegrations() {
                                     onClick={async () => {
                                         setLoadingAction("save-enterprise-auth");
                                         try {
-                                            const res = await fetch("http://localhost:8000/api/vault/save", {
+                                            const res = await fetch(`${API_BASE}/api/vault/save`, {
                                                 method: "POST",
                                                 headers: { "Content-Type": "application/json" },
                                                 body: JSON.stringify({

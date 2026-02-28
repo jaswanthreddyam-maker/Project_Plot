@@ -1,6 +1,7 @@
 "use client";
 
 import { useUIStore } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 
@@ -37,7 +38,7 @@ export default function OtherToolsMenu() {
         }
 
         try {
-            const res = await fetch("http://localhost:8000/api/tools/execute", {
+            const res = await fetch(`${API_BASE}/api/tools/execute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

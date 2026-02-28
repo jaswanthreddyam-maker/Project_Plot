@@ -184,8 +184,9 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
         else:
             final_output = f"Unknown tool requested: {tool_name}"
         
-        # Signal completion
-        redis_client.rpush(stream_channel, "__DONE__")
+        # Signal completion with the actual result payload
+        result_str = str(final_output) if final_output else ""
+        redis_client.rpush(stream_channel, f"__DONE__{result_str}")
         return {"status": "success", "result": final_output}
 
     except ValidationError as e:

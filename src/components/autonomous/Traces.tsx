@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { API_BASE } from "@/lib/api";
 import { Brain, Terminal, RefreshCw } from "lucide-react";
 
 interface TraceRun {
@@ -34,7 +35,7 @@ export default function Traces() {
     const fetchRuns = async () => {
         try {
             setLoading(true);
-            const res = await fetch("http://localhost:8000/api/traces");
+            const res = await fetch(`${API_BASE}/api/traces`);
             if (res.ok) {
                 const data = await res.json();
                 setRuns(data);
@@ -55,7 +56,7 @@ export default function Traces() {
         const fetchDetails = async () => {
             try {
                 setLoadingDetails(true);
-                const res = await fetch(`http://localhost:8000/api/traces/${selectedRun}`);
+                const res = await fetch(`${API_BASE}/api/traces/${selectedRun}`);
                 if (res.ok) {
                     const data = await res.json();
 

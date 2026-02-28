@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore, AgentConfig, TaskConfig } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Brain, Calendar, User, Wrench, Play, ArrowRightLeft, Repeat, UserCheck } from "lucide-react";
 import { ApprovalOverlay } from "./ApprovalOverlay";
@@ -134,6 +135,7 @@ export default function CrewStudio() {
     // ── Execution Output Modal ─────────────────────────────────
     const [showOutputModal, setShowOutputModal] = useState(false);
     const [outputData, setOutputData] = useState<string | null>(null);
+    const [isOutputLoading, setIsOutputLoading] = useState(false);
 
     // Initial setup if empty
     useEffect(() => {
@@ -260,14 +262,14 @@ export default function CrewStudio() {
     }, [setToolExecutionEnd]);
 
     useEffect(() => {
-        if (!isToolExecuting || !toolTaskId || toolTaskId === "simulated-plot-run") return;
+        if (!isToolExecuting || !toolTaskId) return;
 
         if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
         setTerminalError(null);
         setTerminalChunks([]);
 
         // USE THE NEW TRACES SSE ENDPOINT
-        const eventSource = new EventSource(`http://localhost:8000/api/traces/stream/${toolTaskId}`);
+        const eventSource = new EventSource(`${API_BASE}/api/traces/stream/${toolTaskId}`);
 
         eventSource.onmessage = (event) => {
             try {
@@ -323,6 +325,14 @@ export default function CrewStudio() {
                         setActiveAgentId(null);
                         setActiveToolId(null);
                         setActiveEdgeId(null);
+                        // Mark all tasks as completed
+                        setTaskConfig(useUIStore.getState().taskConfig.map(t => ({ ...t, status: 'Completed' as const })));
+                        // Capture real result from backend
+                        if (data.result) {
+                            setOutputData(data.result);
+                            setIsOutputLoading(false);
+                            setShowOutputModal(true);
+                        }
                         resetTimeoutRef.current = setTimeout(handleReset, 4000);
                         eventSource.close();
                         break;
@@ -353,7 +363,7 @@ export default function CrewStudio() {
     const handleApprove = async () => {
         if (!approvalExecutionId) return;
         try {
-            await fetch("http://localhost:8000/api/approval/confirm", {
+            await fetch(`${API_BASE}/api/approval/confirm`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ execution_id: approvalExecutionId })
@@ -368,7 +378,7 @@ export default function CrewStudio() {
     const handleDeny = async () => {
         if (!approvalExecutionId) return;
         try {
-            await fetch("http://localhost:8000/api/approval/deny", {
+            await fetch(`${API_BASE}/api/approval/deny`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ execution_id: approvalExecutionId })
@@ -384,7 +394,7 @@ export default function CrewStudio() {
         if (!toolTaskId || !interventionInput.trim()) return;
 
         try {
-            await fetch("http://localhost:8000/api/resume", {
+            await fetch(`${API_BASE}/api/resume`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ task_id: toolTaskId, feedback: interventionInput })
@@ -412,48 +422,56 @@ export default function CrewStudio() {
 
         setIsDeploying(true);
         setTerminalError(null);
-        setToolExecutionState("Starting Plot Execution...");
         setTerminalChunks([]);
-        setToolExecutionStart("simulated-plot-run", "simulated-plot-execution");
-
-        // Reset all to pending
-        setTaskConfig(taskConfig.map(t => ({ ...t, status: 'Pending' })));
-
-        let finalOutput = "";
-
-        for (let i = 0; i < taskConfig.length; i++) {
-            const task = taskConfig[i];
-            const agent = agentConfig.find(a => a.id === task.agentId);
-            const agentName = agent ? agent.role : "System Agent";
-
-            // Mark running
-            setTaskConfig(useUIStore.getState().taskConfig.map(t => t.id === task.id ? { ...t, status: 'Running' as const } : t));
-            setActiveAgentId(agent?.id || null);
-            setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${agentName}] Started Task: ${task.description}`]);
-
-            await new Promise(r => setTimeout(r, 2000));
-            setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${agentName}] Analyzing requirements and drafting plan...`]);
-
-            await new Promise(r => setTimeout(r, 1500));
-            setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${agentName}] Task computation complete.`]);
-
-            // Mark completed
-            setTaskConfig(useUIStore.getState().taskConfig.map(t => t.id === task.id ? { ...t, status: 'Completed' as const } : t));
-
-            finalOutput += `### Task: ${task.description}\n**Agent**: ${agentName}\n\n*Simulated generated output containing insights and data processing for this task step.*\n\n---\n\n`;
-        }
-
-        setActiveAgentId(null);
-        setIsDeploying(false);
-        setToolExecutionState("All tasks completed!");
-        setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [System] Plot execution finished successfully.`]);
-
-        setOutputData(finalOutput);
+        setOutputData(null);
+        setIsOutputLoading(true);
         setShowOutputModal(true);
 
-        setTimeout(() => {
-            setToolExecutionEnd();
-        }, 1500);
+        // Mark all tasks as Running
+        setTaskConfig(taskConfig.map(t => ({ ...t, status: 'Running' as const })));
+
+        const payload = {
+            tool_name: "PlotAutonomous",
+            arguments: {
+                objective: "Custom User Workflow",
+                agents: agentConfig,
+                tasks: taskConfig,
+                knowledge_sources: activeKnowledgeSources
+            }
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/api/tools/execute`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                // This triggers the SSE useEffect which handles real-time traces and the completed event
+                setToolExecutionStart(data.task_id, data.execution_id || data.task_id);
+            } else {
+                let errText = "Failed to deploy Crew. Check backend connection.";
+                try {
+                    const errObj = await res.json();
+                    errText = errObj.detail || errText;
+                } catch (e) {
+                    errText = await res.text() || errText;
+                }
+                setTerminalError(`Execution Failed: ${errText}`);
+                setIsOutputLoading(false);
+                setShowOutputModal(false);
+                setTaskConfig(useUIStore.getState().taskConfig.map(t => ({ ...t, status: 'Failed' as const })));
+            }
+        } catch (err: any) {
+            setTerminalError(`Network Error: ${err.message || "Failed to reach backend."}`);
+            setIsOutputLoading(false);
+            setShowOutputModal(false);
+            setTaskConfig(useUIStore.getState().taskConfig.map(t => ({ ...t, status: 'Failed' as const })));
+        } finally {
+            setIsDeploying(false);
+        }
     };
 
     const scheduleFlow = async () => {
@@ -465,7 +483,7 @@ export default function CrewStudio() {
                 agents: agentConfig,
                 tasks: taskConfig
             };
-            const res = await fetch("http://localhost:8000/api/tools/schedule", {
+            const res = await fetch(`${API_BASE}/api/tools/schedule`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ interval: scheduleInterval, arguments: payload })
@@ -909,7 +927,21 @@ export default function CrewStudio() {
                                 </button>
                             </div>
                             <div className="flex-1 overflow-y-auto whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 font-mono p-4 bg-slate-50 dark:bg-black rounded-xl border border-slate-100 dark:border-slate-900 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
-                                {outputData}
+                                {isOutputLoading ? (
+                                    <div className="flex flex-col items-center justify-center h-full gap-4 py-16">
+                                        <motion.div
+                                            animate={{ rotate: 360 }}
+                                            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                                            className="w-10 h-10 border-3 border-slate-300 dark:border-slate-700 border-t-black dark:border-t-white rounded-full"
+                                        />
+                                        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 tracking-tight">Processing... Agents are working.</p>
+                                        <p className="text-xs text-slate-400 dark:text-slate-500">Real-time traces are streaming below.</p>
+                                    </div>
+                                ) : outputData ? (
+                                    outputData
+                                ) : (
+                                    <p className="text-slate-400 dark:text-slate-500 text-center py-8">No output data received.</p>
+                                )}
                             </div>
                             <div className="mt-6 flex justify-end">
                                 <button

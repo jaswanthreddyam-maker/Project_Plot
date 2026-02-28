@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ToolExecutionStream() {
@@ -36,7 +37,7 @@ export default function ToolExecutionStream() {
         setError(null);
         setChunks([]);
 
-        const eventSource = new EventSource(`http://localhost:8000/stream/${toolTaskId}`);
+        const eventSource = new EventSource(`${API_BASE}/stream/${toolTaskId}`);
 
         eventSource.onmessage = (event) => {
             try {

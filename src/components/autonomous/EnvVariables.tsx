@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { API_BASE } from "@/lib/api";
 
 interface EnvVariable {
     id: string;
@@ -22,7 +23,7 @@ export default function EnvVariables() {
     const fetchVariables = async () => {
         try {
             setLoading(true);
-            const res = await fetch("http://localhost:8000/api/settings/env");
+            const res = await fetch(`${API_BASE}/api/settings/env`);
             if (res.ok) {
                 const data = await res.json();
                 setVariables(data.variables || []);
@@ -44,7 +45,7 @@ export default function EnvVariables() {
 
         try {
             setIsSubmitting(true);
-            const res = await fetch("http://localhost:8000/api/settings/env", {
+            const res = await fetch(`${API_BASE}/api/settings/env`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key: envKey.trim(), value: envValue.trim() })
@@ -74,7 +75,7 @@ export default function EnvVariables() {
     const handleDelete = async (key: string) => {
         if (!confirm(`Are you sure you want to delete ${key}?`)) return;
         try {
-            const res = await fetch(`http://localhost:8000/api/settings/env/${encodeURIComponent(key)}`, {
+            const res = await fetch(`${API_BASE}/api/settings/env/${encodeURIComponent(key)}`, {
                 method: "DELETE"
             });
             if (res.ok) {

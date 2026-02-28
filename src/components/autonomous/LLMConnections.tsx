@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useUIStore, LLMConnectionEntry } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
  * LLM Connections Page
@@ -17,8 +18,6 @@ const PROVIDERS = [
     { value: "ollama", label: "Ollama (Local)" },
 ];
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-
 export default function LLMConnections() {
     const { llmConnections, setLlmConnections, addLlmConnection, removeLlmConnection } = useUIStore();
 
@@ -33,7 +32,7 @@ export default function LLMConnections() {
     // Fetch connections on mount
     const fetchConnections = useCallback(async () => {
         try {
-            const res = await fetch(`${BACKEND_URL}/api/settings/llm-connections`);
+            const res = await fetch(`${API_BASE}/api/settings/llm-connections`);
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data.connections)) {
@@ -59,7 +58,7 @@ export default function LLMConnections() {
         setSuccessMsg(null);
 
         try {
-            const res = await fetch(`${BACKEND_URL}/api/settings/llm-connections`, {
+            const res = await fetch(`${API_BASE}/api/settings/llm-connections`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -89,7 +88,7 @@ export default function LLMConnections() {
 
     const handleDelete = async (id: string) => {
         try {
-            await fetch(`${BACKEND_URL}/api/settings/llm-connections/${id}`, { method: "DELETE" });
+            await fetch(`${API_BASE}/api/settings/llm-connections/${id}`, { method: "DELETE" });
             removeLlmConnection(id);
         } catch {
             // Still remove locally

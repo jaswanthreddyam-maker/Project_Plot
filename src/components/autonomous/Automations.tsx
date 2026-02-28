@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { useUIStore } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 
 interface ScheduledFlow {
     id: string;
@@ -37,7 +38,7 @@ export default function Automations() {
     const fetchAutomations = async () => {
         try {
             setLoading(true);
-            const res = await fetch("http://localhost:8000/api/automations");
+            const res = await fetch(`${API_BASE}/api/automations`);
             if (res.ok) {
                 const data = await res.json();
                 setAutomations(data);
@@ -62,7 +63,7 @@ export default function Automations() {
                 knowledge_sources: activeKnowledgeSources
             };
 
-            const res = await fetch("http://localhost:8000/api/automations", {
+            const res = await fetch(`${API_BASE}/api/automations`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -98,7 +99,7 @@ export default function Automations() {
         // Optimistic UI update
         setAutomations(automations.map(a => a.id === id ? { ...a, is_active: !currentStatus } : a));
         try {
-            await fetch(`http://localhost:8000/api/automations/${id}/toggle`, {
+            await fetch(`${API_BASE}/api/automations/${id}/toggle`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ is_active: !currentStatus })

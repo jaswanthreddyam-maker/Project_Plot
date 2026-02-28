@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUIStore } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 const AGENTS = [
@@ -46,7 +47,7 @@ export default function AutonomousWorkspace() {
         setError(null);
         setChunks([]);
 
-        const eventSource = new EventSource(`http://localhost:8000/stream/${toolTaskId}`);
+        const eventSource = new EventSource(`${API_BASE}/stream/${toolTaskId}`);
 
         eventSource.onmessage = (event) => {
             try {
@@ -99,7 +100,7 @@ export default function AutonomousWorkspace() {
         setError(null);
 
         try {
-            const res = await fetch("http://localhost:8000/api/tools/execute", {
+            const res = await fetch(`${API_BASE}/api/tools/execute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

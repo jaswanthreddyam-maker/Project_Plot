@@ -1,6 +1,7 @@
 "use client";
 
 import { useUIStore, AmpRoute, AgentConfig, TaskConfig } from "@/store/uiStore";
+import { API_BASE } from "@/lib/api";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
@@ -160,7 +161,7 @@ export default function AppSidebar() {
 
     useEffect(() => {
         setMounted(true);
-        fetch("http://localhost:8000/api/workspace/info")
+        fetch(`${API_BASE}/api/workspace/info`)
             .then(res => { if (res.ok) setIsWorkspaceReady(true); })
             .catch(err => console.error("Workspace init failed:", err));
     }, []);

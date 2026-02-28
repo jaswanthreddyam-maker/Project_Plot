@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, Trash2, ChevronDown, Database, LayoutTemplate, Moon, Sun, AlertCircle, CheckCircle } from "lucide-react";
 import { useTheme } from "next-themes";
+import { API_BASE, fetchWithTimeout } from "@/lib/api";
 
 interface VaultKey {
     id: string;
@@ -86,9 +87,9 @@ export default function Settings() {
         setIsLoading(true);
         try {
             const [keysRes, configRes, workspaceRes] = await Promise.all([
-                fetch("http://localhost:8000/api/vault/list"),
-                fetch("http://localhost:8000/api/config"),
-                fetch("http://localhost:8000/api/workspace/info").catch(() => null)
+                fetchWithTimeout(`${API_BASE}/api/vault/list`),
+                fetchWithTimeout(`${API_BASE}/api/config`),
+                fetchWithTimeout(`${API_BASE}/api/workspace/info`).catch(() => null)
             ]);
 
             if (keysRes.ok) {
@@ -125,7 +126,7 @@ export default function Settings() {
         setSavingConfig(true);
 
         try {
-            await fetch("http://localhost:8000/api/config/update", {
+            await fetch(`${API_BASE}/api/config/update`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ [key]: value })
@@ -140,7 +141,7 @@ export default function Settings() {
     const handleClearMemory = async () => {
         setClearingMemory(true);
         try {
-            await fetch("http://localhost:8000/api/config/clear-memory", {
+            await fetch(`${API_BASE}/api/config/clear-memory`, {
                 method: "POST"
             });
             setShowMemoryConfirm(false);
@@ -155,7 +156,7 @@ export default function Settings() {
         if (!appNameInput.trim() || appNameInput === workspaceInfo.app_name) return;
         setSavingWorkspace(true);
         try {
-            const res = await fetch("http://localhost:8000/api/workspace/update", {
+            const res = await fetch(`${API_BASE}/api/workspace/update`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ app_name: appNameInput })
@@ -184,7 +185,7 @@ export default function Settings() {
 
         setSavingKeys(prev => ({ ...prev, [keyName]: true }));
         try {
-            const res = await fetch("http://localhost:8000/api/vault/save", {
+            const res = await fetchWithTimeout(`${API_BASE}/api/vault/save`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key_name: keyName, value: val, category })
