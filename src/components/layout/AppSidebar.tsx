@@ -3,6 +3,7 @@
 import { useUIStore, AmpRoute, AgentConfig, TaskConfig } from "@/store/uiStore";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
+import { Trash2 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
  * Navigation definition — matches CrewAI Enterprise sidebar
@@ -36,7 +37,7 @@ const NAV_SECTIONS: NavSection[] = [
             },
             {
                 id: "crew-studio",
-                label: "Crew Studio",
+                label: "Plot Studio",
                 icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 20h9" />
@@ -106,7 +107,7 @@ const NAV_SECTIONS: NavSection[] = [
         items: [
             {
                 id: "usage",
-                label: "Usage (Soon)",
+                label: "Usage",
                 icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="20" x2="18" y2="10" />
@@ -127,7 +128,7 @@ const NAV_SECTIONS: NavSection[] = [
             },
             {
                 id: "settings",
-                label: "Settings (Soon)",
+                label: "Settings",
                 icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="3" />
@@ -171,6 +172,15 @@ export default function AppSidebar() {
         const id = crypto.randomUUID();
         setAgentConfig([...agentConfig, { id, role: "New Agent", goal: "", backstory: "", provider: activeProviders[0] || "openai", tools: [] }]);
         setSelectedAgentId(id);
+    };
+
+    const removeAgent = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        const newAgents = agentConfig.filter(a => a.id !== id);
+        setAgentConfig(newAgents);
+        if (selectedAgentId === id) {
+            setSelectedAgentId(newAgents.length > 0 ? newAgents[0].id : null);
+        }
     };
 
     const addTask = () => {
@@ -254,16 +264,23 @@ export default function AppSidebar() {
                             </div>
                             <div className="space-y-0.5">
                                 {agentConfig.map((agent) => (
-                                    <button
+                                    <div
                                         key={agent.id}
-                                        onClick={() => setSelectedAgentId(agent.id)}
-                                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${selectedAgentId === agent.id
+                                        className={`group flex items-center justify-between w-full px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${selectedAgentId === agent.id
                                             ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold"
                                             : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                                             }`}
+                                        onClick={() => setSelectedAgentId(agent.id)}
                                     >
-                                        {agent.role || "Untitled Agent"}
-                                    </button>
+                                        <span className="truncate">{agent.role || "Untitled Agent"}</span>
+                                        <button
+                                            onClick={(e) => removeAgent(e, agent.id)}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500"
+                                            title="Delete agent"
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
                         </div>

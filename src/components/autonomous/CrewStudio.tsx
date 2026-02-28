@@ -479,7 +479,7 @@ export default function CrewStudio() {
                 {/* Flow Header Overlays */}
                 <div className="absolute top-6 left-6 right-6 z-10 flex items-center justify-between pointer-events-none">
                     <div className="pointer-events-auto bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Crew Studio</h2>
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Plot Studio</h2>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Map out agents and their tools organically.</p>
                     </div>
 
