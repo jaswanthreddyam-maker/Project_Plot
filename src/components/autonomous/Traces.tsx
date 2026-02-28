@@ -104,8 +104,8 @@ export default function Traces() {
                                             {run.execution_id.split("-").pop()}
                                         </span>
                                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${run.status.toLowerCase() === 'running' ? 'bg-blue-500/10 text-blue-400' :
-                                                run.status.toLowerCase() === 'failed' ? 'bg-red-500/10 text-red-400' :
-                                                    'bg-emerald-500/10 text-emerald-400'
+                                            run.status.toLowerCase() === 'failed' ? 'bg-red-500/10 text-red-400' :
+                                                'bg-emerald-500/10 text-emerald-400'
                                             }`}>
                                             {run.status}
                                         </span>
@@ -136,14 +136,14 @@ export default function Traces() {
                             ) : (
                                 <div className="space-y-6">
                                     {traceDetails.map((detail, idx) => (
-                                        <div key={detail.id} className="border-l border-emerald-900/50 pl-4 py-1">
-                                            <div className="flex items-center gap-2 mb-2 text-emerald-600">
+                                        <div key={detail.id} className="border-l border-green-900/50 pl-4 py-1">
+                                            <div className="flex items-center gap-2 mb-2 text-green-600">
                                                 <span>[{format(new Date(detail.timestamp), "HH:mm:ss.SSS")}]</span>
-                                                <span className="font-bold text-emerald-300">{detail.agent_role || "System"}</span>
+                                                <span className="font-bold text-green-300">{detail.agent_role || "System"}</span>
                                                 <span>-&gt;</span>
-                                                <span className="text-emerald-500">{detail.task_description}</span>
+                                                <span className="text-green-500">{detail.task_description}</span>
                                             </div>
-                                            <pre className="whitespace-pre-wrap break-words text-emerald-400 font-secondary mt-1 max-w-[80vw]">
+                                            <pre className="whitespace-pre-wrap break-words text-green-400 font-secondary mt-1 max-w-[80vw]">
                                                 {formatLogOutput(detail.logs)}
                                             </pre>
                                         </div>

@@ -357,16 +357,7 @@ export default function WorkspacePage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => {
-                                setActiveWorkspace("autonomous");
-                                setActiveAmpRoute("agents-repository");
-                            }}
-                            className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors shadow-sm"
-                        >
-                            <span className="text-base leading-none">🤖</span>
-                            PlotAI Agent Builder
-                        </button>
+
                         <AssistantToggle />
                         <div className="relative flex items-center gap-3">
                             <OtherToolsToggle />
