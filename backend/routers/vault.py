@@ -50,7 +50,7 @@ def save_vault_key(req: VaultSaveRequest):
     
     # Optional basic prefix validation for OpenAI
     if req.key_name == "OPENAI_API_KEY" and not req.value.startswith("sk-") and not req.value.startswith("sk-proj-"):
-        raise HTTPException(status_code=400, detail="Rey mawa, idhi valid key kaadhu. Proper OpenAI 'sk-' key ivvu.")
+        raise HTTPException(status_code=400, detail="Rey mawa, idhi valid key kaadhu. Proper 'sk-' key ivvu.")
         
     try:
         encrypted_value = fernet.encrypt(req.value.encode()).decode()

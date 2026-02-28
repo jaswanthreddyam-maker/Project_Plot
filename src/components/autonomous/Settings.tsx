@@ -187,7 +187,7 @@ export default function Settings() {
     const handleSave = async (category: string, keyName: string) => {
         const val = inputValues[keyName];
         if (!val || val.trim() === "") {
-            setToast({ message: "Mawa, key empty ga undhi. Paste chesi try cheyi.", type: "error" });
+            setToast({ message: "Mawa, key empty ga undhi. Paste chesi save cheyi.", type: "error" });
             setTimeout(() => setToast(null), 4000);
             return;
         }
@@ -289,7 +289,7 @@ export default function Settings() {
                                             onChange={(e) => setAppNameInput(e.target.value)}
                                             onKeyDown={(e) => e.key === "Enter" && handleSaveWorkspace()}
                                             placeholder="PlotAI Workspace"
-                                            className="flex-1 bg-gray-50 dark:bg-[#1A1A1A] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm focus:outline-none ring-0 placeholder:text-gray-400 transition-colors"
+                                            className="flex-1 bg-gray-50 dark:bg-[#1A1A1A] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm outline-none ring-0 placeholder:text-gray-400 transition-colors"
                                         />
                                         <button
                                             onClick={handleSaveWorkspace}
@@ -492,7 +492,7 @@ export default function Settings() {
                                                             value={value}
                                                             onChange={(e) => handleInputChange(keyName, e.target.value)}
                                                             placeholder="Paste your key here..."
-                                                            className="w-full bg-white dark:bg-[#000000] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-0 focus:border-black dark:focus:border-white placeholder:text-gray-400 transition-colors"
+                                                            className="w-full bg-white dark:bg-[#000000] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm outline-none ring-0 focus:border-black dark:focus:border-white placeholder:text-gray-400 transition-colors"
                                                             data-1p-ignore
                                                         />
                                                         <button
