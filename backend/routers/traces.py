@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 from sqlalchemy import desc
+import datetime
+import json
 from db_config import get_db_session, AgentTrace
 
 router = APIRouter(
@@ -31,6 +33,13 @@ def get_all_traces():
                     "timestamp": row.timestamp.isoformat()
                 })
         
+        if not unique_runs:
+            return [{
+                "execution_id": "demo-exec-001",
+                "status": "Success",
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }]
+            
         return unique_runs
 
 @router.get("/{execution_id}")
@@ -41,6 +50,35 @@ def get_trace_details(execution_id: str):
             AgentTrace.execution_id == execution_id
         ).order_by(AgentTrace.timestamp).all()
         
+        if not traces and execution_id == "demo-exec-001":
+            now = datetime.datetime.utcnow()
+            return [
+                {
+                    "id": "demo-step-1",
+                    "agent_role": "System",
+                    "task_description": "Initialize Plot Demo Execution",
+                    "status": "Running",
+                    "logs": "System booted securely. Waiting for instructions...",
+                    "timestamp": (now - datetime.timedelta(minutes=2)).isoformat()
+                },
+                {
+                    "id": "demo-step-2",
+                    "agent_role": "Research Agent",
+                    "task_description": "Analyze Market Data",
+                    "status": "Success",
+                    "logs": json.dumps({"thought": "I need to fetch the latest market trends.", "action": "SearchWeb", "result": "Found 5 key trends in AI development."}),
+                    "timestamp": (now - datetime.timedelta(minutes=1)).isoformat()
+                },
+                {
+                    "id": "demo-step-3",
+                    "agent_role": "System",
+                    "task_description": "Finalize",
+                    "status": "Success",
+                    "logs": "Flow Execution Finished",
+                    "timestamp": now.isoformat()
+                }
+            ]
+            
         return [
             {
                 "id": t.id,

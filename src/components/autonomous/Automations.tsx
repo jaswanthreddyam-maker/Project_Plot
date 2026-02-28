@@ -77,12 +77,18 @@ export default function Automations() {
                 fetchAutomations();
                 setCrewName("Daily Research Crew");
                 setCronSchedule("Every Hour");
+                alert("Schedule Created Successfully!");
             } else {
-                alert("Failed to create automation.");
+                let errMsg = "Failed to create automation.";
+                try {
+                    const errData = await res.json();
+                    errMsg = errData.detail || errMsg;
+                } catch (e) { }
+                alert(`Error: ${errMsg}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Error creating automation schedule.");
+            alert(`Network Error: ${error.message || "Failed to reach backend."}`);
         } finally {
             setIsSubmitting(false);
         }

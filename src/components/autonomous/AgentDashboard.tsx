@@ -187,12 +187,18 @@ export default function AgentDashboard() {
                 const data = await res.json();
                 setToolExecutionStart(data.task_id, data.execution_id || data.task_id);
             } else {
-                const errText = await res.text();
-                setTerminalError(errText || "Failed to deploy Crew. Check backend connection.");
+                let errText = "Failed to deploy Crew. Check backend connection.";
+                try {
+                    const errObj = await res.json();
+                    errText = errObj.detail || errText;
+                } catch (e) {
+                    errText = await res.text() || errText;
+                }
+                setTerminalError(`Deployment Failed: ${errText}`);
                 console.error("Backend Error:", errText);
             }
-        } catch (err) {
-            setTerminalError("Network error deploying Crew.");
+        } catch (err: any) {
+            setTerminalError(`Network Error: ${err.message || "Failed to reach backend."}`);
         } finally {
             setIsDeploying(false);
         }
