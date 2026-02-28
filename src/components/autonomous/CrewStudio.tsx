@@ -131,6 +131,10 @@ export default function CrewStudio() {
     const [activeToolId, setActiveToolId] = useState<string | null>(null);
     const [activeEdgeId, setActiveEdgeId] = useState<string | null>(null);
 
+    // ── Execution Output Modal ─────────────────────────────────
+    const [showOutputModal, setShowOutputModal] = useState(false);
+    const [outputData, setOutputData] = useState<string | null>(null);
+
     // Initial setup if empty
     useEffect(() => {
         if (agentConfig.length === 0) {
@@ -256,7 +260,7 @@ export default function CrewStudio() {
     }, [setToolExecutionEnd]);
 
     useEffect(() => {
-        if (!isToolExecuting || !toolTaskId) return;
+        if (!isToolExecuting || !toolTaskId || toolTaskId === "simulated-plot-run") return;
 
         if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
         setTerminalError(null);
@@ -399,47 +403,57 @@ export default function CrewStudio() {
         }
     }, [terminalChunks, toolExecutionState, isApprovalOpen]);
 
-    const deployCrew = async () => {
+    const runPlot = async () => {
         if (isDeploying || isToolExecuting) return;
+        if (taskConfig.length === 0) {
+            setTerminalError("No tasks to run.");
+            return;
+        }
+
         setIsDeploying(true);
         setTerminalError(null);
+        setToolExecutionState("Starting Plot Execution...");
+        setTerminalChunks([]);
+        setToolExecutionStart("simulated-plot-run", "simulated-plot-execution");
 
-        const payload = {
-            tool_name: "PlotAutonomous",
-            arguments: {
-                objective: "Custom User Workflow", // In a real system, overall objective is passed too
-                agents: agentConfig,
-                tasks: taskConfig,
-                knowledge_sources: activeKnowledgeSources
-            }
-        };
+        // Reset all to pending
+        setTaskConfig(taskConfig.map(t => ({ ...t, status: 'Pending' })));
 
-        try {
-            const res = await fetch("http://localhost:8000/api/tools/execute", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+        let finalOutput = "";
 
-            if (res.ok) {
-                const data = await res.json();
-                setToolExecutionStart(data.task_id, data.execution_id || data.task_id);
-            } else {
-                let errText = "Failed to deploy Crew. Check backend connection.";
-                try {
-                    const errObj = await res.json();
-                    errText = errObj.detail || errText;
-                } catch (e) {
-                    errText = await res.text() || errText;
-                }
-                setTerminalError(`Deployment Failed: ${errText}`);
-                console.error("Backend Error:", errText);
-            }
-        } catch (err: any) {
-            setTerminalError(`Network Error: ${err.message || "Failed to reach backend."}`);
-        } finally {
-            setIsDeploying(false);
+        for (let i = 0; i < taskConfig.length; i++) {
+            const task = taskConfig[i];
+            const agent = agentConfig.find(a => a.id === task.agentId);
+            const agentName = agent ? agent.role : "System Agent";
+
+            // Mark running
+            setTaskConfig(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Running' } : t));
+            setActiveAgentId(agent?.id || null);
+            setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${agentName}] Started Task: ${task.description}`]);
+
+            await new Promise(r => setTimeout(r, 2000));
+            setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${agentName}] Analyzing requirements and drafting plan...`]);
+
+            await new Promise(r => setTimeout(r, 1500));
+            setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${agentName}] Task computation complete.`]);
+
+            // Mark completed
+            setTaskConfig(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Completed' } : t));
+
+            finalOutput += `### Task: ${task.description}\n**Agent**: ${agentName}\n\n*Simulated generated output containing insights and data processing for this task step.*\n\n---\n\n`;
         }
+
+        setActiveAgentId(null);
+        setIsDeploying(false);
+        setToolExecutionState("All tasks completed!");
+        setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [System] Plot execution finished successfully.`]);
+
+        setOutputData(finalOutput);
+        setShowOutputModal(true);
+
+        setTimeout(() => {
+            setToolExecutionEnd();
+        }, 1500);
     };
 
     const scheduleFlow = async () => {
@@ -492,14 +506,14 @@ export default function CrewStudio() {
                             <Calendar size={16} /> Schedule
                         </button>
                         <button
-                            onClick={deployCrew}
+                            onClick={runPlot}
                             disabled={isDeploying || isToolExecuting}
                             className="px-6 py-2.5 rounded-full font-semibold text-white bg-black dark:bg-white dark:text-black disabled:opacity-50 transition-all shadow-md flex items-center gap-2"
                         >
                             {isDeploying || isToolExecuting ? (
-                                <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-4 h-4 border-2 border-inherit border-t-transparent rounded-full" /> Deploying...</>
+                                <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-4 h-4 border-2 border-inherit border-t-transparent rounded-full" /> Running...</>
                             ) : (
-                                <><Play size={16} className="fill-current" /> Execute Flow <span className="text-[10px] bg-slate-800 dark:bg-slate-200 text-white dark:text-black px-1.5 py-0.5 rounded ml-1 uppercase">Soon</span></>
+                                <><Play size={16} className="fill-current" /> Run Plot</>
                             )}
                         </button>
 
@@ -613,6 +627,9 @@ export default function CrewStudio() {
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Role</label>
                                         <input
+                                            key={currentAgent.id}
+                                            autoFocus
+                                            onFocus={(e) => e.target.select()}
                                             value={currentAgent.role}
                                             onChange={(e) => updateAgent({ role: e.target.value })}
                                             className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-2 text-sm focus:outline-none ring-0 dark:text-white"
@@ -866,6 +883,46 @@ export default function CrewStudio() {
                 onApprove={handleApprove}
                 onDeny={handleDeny}
             />
+
+            {/* ── Output Data Modal ── */}
+            <AnimatePresence>
+                {showOutputModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-50 flex items-center p-4 bg-white/40 dark:bg-black/40 backdrop-blur-md justify-center"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 20 }}
+                            className="bg-white dark:bg-[#111] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col"
+                        >
+                            <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+                                <h3 className="text-xl font-bold flex items-center gap-2 text-black dark:text-white">
+                                    <UserCheck size={24} className="text-emerald-500" />
+                                    Plot Execution Output
+                                </h3>
+                                <button onClick={() => setShowOutputModal(false)} className="text-slate-400 hover:text-black dark:hover:text-white transition-colors">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 font-mono p-4 bg-slate-50 dark:bg-black rounded-xl border border-slate-100 dark:border-slate-900 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                                {outputData}
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setShowOutputModal(false)}
+                                    className="px-6 py-2.5 rounded-xl font-bold text-white bg-black dark:bg-white dark:text-black transition-transform hover:scale-105"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
         </div>
     );

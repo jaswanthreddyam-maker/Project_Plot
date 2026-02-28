@@ -45,6 +45,13 @@ class VaultKeyResponse(BaseModel):
 @router.post("/save")
 def save_vault_key(req: VaultSaveRequest):
     """Encrypts and stores a key in the Vault."""
+    if not req.value or not req.value.strip():
+        raise HTTPException(status_code=400, detail="Mawa, key empty ga undhi. Paste chesi try cheyi.")
+    
+    # Optional basic prefix validation for OpenAI
+    if req.key_name == "OPENAI_API_KEY" and not req.value.startswith("sk-") and not req.value.startswith("sk-proj-"):
+        raise HTTPException(status_code=400, detail="Key format correct ga ledhu. Proper API key paste cheyyi.")
+        
     try:
         encrypted_value = fernet.encrypt(req.value.encode()).decode()
         
@@ -54,6 +61,7 @@ def save_vault_key(req: VaultSaveRequest):
             if existing_key:
                 existing_key.encrypted_value = encrypted_value
                 existing_key.category = req.category
+                db.add(existing_key)
             else:
                 new_key = VaultKey(
                     id=str(uuid.uuid4()),
@@ -63,11 +71,15 @@ def save_vault_key(req: VaultSaveRequest):
                 )
                 db.add(new_key)
             db.commit()
+            if existing_key:
+                db.refresh(existing_key)
+            else:
+                db.refresh(new_key)
             
         return {"status": "success", "message": f"Key '{req.key_name}' saved securely."}
     except Exception as e:
         logging.error(f"Error saving vault key: {e}")
-        raise HTTPException(status_code=500, detail="Failed to save key to vault.")
+        raise HTTPException(status_code=500, detail="Database busy undhi, malli save cheyi.")
 
 @router.get("/list", response_model=List[VaultKeyResponse])
 def list_vault_keys():

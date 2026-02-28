@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, Trash2, ChevronDown, Database, LayoutTemplate, Moon, Sun } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, Trash2, ChevronDown, Database, LayoutTemplate, Moon, Sun, AlertCircle, CheckCircle } from "lucide-react";
 import { useTheme } from "next-themes";
 
 interface VaultKey {
@@ -73,6 +73,9 @@ export default function Settings() {
     const [appNameInput, setAppNameInput] = useState("");
     const [savingWorkspace, setSavingWorkspace] = useState(false);
     const [workspaceSuccess, setWorkspaceSuccess] = useState(false);
+
+    // Toast State
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -171,7 +174,13 @@ export default function Settings() {
 
     const handleSave = async (category: string, keyName: string) => {
         const val = inputValues[keyName];
-        if (!val || val.includes("••••••••")) return; // Don't save if empty or unchanged masked
+        if (!val || val.trim() === "") {
+            setToast({ message: "Mawa, key empty ga undhi. Paste chesi try cheyi.", type: "error" });
+            setTimeout(() => setToast(null), 4000);
+            return;
+        }
+
+        if (val.includes("••••••••")) return; // Don't save if unchanged masked
 
         setSavingKeys(prev => ({ ...prev, [keyName]: true }));
         try {
@@ -181,13 +190,22 @@ export default function Settings() {
                 body: JSON.stringify({ key_name: keyName, value: val, category })
             });
 
+            const data = await res.json();
+
             if (res.ok) {
+                setToast({ message: "Success: Key encrypted and saved.", type: "success" });
                 setSavedSuccess(prev => ({ ...prev, [keyName]: true }));
                 setTimeout(() => setSavedSuccess(prev => ({ ...prev, [keyName]: false })), 2000);
+                setTimeout(() => setToast(null), 4000);
                 await fetchSettingsData(); // Refresh to get masked version
+            } else {
+                setToast({ message: data.detail || "Failed to save key.", type: "error" });
+                setTimeout(() => setToast(null), 5000);
             }
         } catch (error) {
             console.error(`Failed to save ${keyName}:`, error);
+            setToast({ message: "Network Error: Failed to reach backend.", type: "error" });
+            setTimeout(() => setToast(null), 5000);
         } finally {
             setSavingKeys(prev => ({ ...prev, [keyName]: false }));
         }
@@ -287,8 +305,8 @@ export default function Settings() {
                                         <button
                                             onClick={() => mounted && setTheme("light")}
                                             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${mounted && theme === "light"
-                                                    ? "bg-white text-black shadow-sm border border-gray-200"
-                                                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 border border-transparent"
+                                                ? "bg-white text-black shadow-sm border border-gray-200"
+                                                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 border border-transparent"
                                                 }`}
                                         >
                                             <Sun size={14} /> Light
@@ -296,8 +314,8 @@ export default function Settings() {
                                         <button
                                             onClick={() => mounted && setTheme("dark")}
                                             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${mounted && theme === "dark"
-                                                    ? "bg-[#222] text-white shadow-sm border border-gray-700"
-                                                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 border border-transparent"
+                                                ? "bg-[#222] text-white shadow-sm border border-gray-700"
+                                                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 border border-transparent"
                                                 }`}
                                         >
                                             <Moon size={14} /> Dark
@@ -472,12 +490,14 @@ export default function Settings() {
                                                     <button
                                                         onClick={() => handleSave(category.id, keyName)}
                                                         disabled={isSaving || !isNewEdited}
-                                                        className={`shrink-0 w-12 h-11 flex items-center justify-center rounded-2xl border transition-all duration-300
+                                                        className={`shrink-0 w-12 h-11 flex items-center justify-center rounded-2xl border transition-all duration-300 outline-none ring-0
                                                             ${isSuccess
                                                                 ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                                                : isNewEdited
-                                                                    ? "bg-black text-white hover:bg-gray-900 border-black dark:bg-white dark:text-black dark:hover:bg-gray-100 dark:border-white"
-                                                                    : "bg-gray-100 text-gray-400 border-gray-200 dark:bg-[#1A1A1A] dark:border-gray-800 cursor-not-allowed"
+                                                                : isSaving
+                                                                    ? "bg-gray-100 text-gray-400 border-gray-200 dark:bg-[#1A1A1A] dark:border-gray-800 cursor-not-allowed"
+                                                                    : isNewEdited
+                                                                        ? "bg-black text-white hover:bg-gray-900 border-black dark:bg-white dark:text-black dark:hover:bg-gray-100 dark:border-white"
+                                                                        : "bg-gray-100 text-gray-400 border-gray-200 dark:bg-[#1A1A1A] dark:border-gray-800 cursor-not-allowed"
                                                             }
                                                         `}
                                                     >
@@ -487,10 +507,10 @@ export default function Settings() {
                                                                 animate={{ scale: 1, opacity: 1 }}
                                                                 className="flex items-center justify-center"
                                                             >
-                                                                <ShieldCheck size={18} />
+                                                                <CheckCircle size={18} />
                                                             </motion.div>
                                                         ) : (
-                                                            <span className="text-xs font-bold">SAVE</span>
+                                                            <span className="text-xs font-bold">{isSaving ? "..." : "SAVE"}</span>
                                                         )}
                                                     </button>
                                                 </div>
@@ -503,6 +523,30 @@ export default function Settings() {
                     </div>
                 )}
             </motion.div>
+
+            {/* ── Toast Notification ── */}
+            <AnimatePresence>
+                {toast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border transition-all
+                            ${toast.type === "success"
+                                ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
+                                : "bg-white text-black border-red-200 dark:bg-black dark:text-white dark:border-red-900/30"
+                            }
+                        `}
+                    >
+                        {toast.type === "success" ? (
+                            <CheckCircle size={20} className={toast.type === "success" ? "text-emerald-500" : "text-black dark:text-white"} />
+                        ) : (
+                            <AlertCircle size={20} className="text-red-500" />
+                        )}
+                        <span className="text-sm font-bold tracking-tight">{toast.message}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

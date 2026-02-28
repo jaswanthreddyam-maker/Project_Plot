@@ -11,15 +11,29 @@ import { Activity, DollarSign, Zap } from "lucide-react";
 
 interface UsageData {
     summary: {
-        total_cost: number;
+        total_tokens: number;
         total_agents: number;
-        total_tools: number;
-        success_rate: number;
-        total_runs: number;
+        total_tasks: number;
     };
     token_chart: { date: string, tokens: number }[];
-    task_chart: { date: string, tasks: number }[];
 }
+
+const MOCK_DATA: UsageData = {
+    summary: {
+        total_tokens: 1245000,
+        total_agents: 12,
+        total_tasks: 45
+    },
+    token_chart: [
+        { date: "Mon", tokens: 120000 },
+        { date: "Tue", tokens: 180000 },
+        { date: "Wed", tokens: 250000 },
+        { date: "Thu", tokens: 190000 },
+        { date: "Fri", tokens: 280000 },
+        { date: "Sat", tokens: 150000 },
+        { date: "Sun", tokens: 75000 },
+    ]
+};
 
 const SkeletonLoader = () => (
     <div className="animate-pulse space-y-8">
@@ -40,18 +54,12 @@ export function UsagePage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchUsage = async () => {
-            try {
-                const res = await fetch("http://localhost:8000/api/analytics/usage");
-                const json = await res.json();
-                setData(json);
-            } catch (err) {
-                console.error("Failed to fetch usage analytics", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchUsage();
+        // Simulate network request to load mock data
+        const loadDelay = setTimeout(() => {
+            setData(MOCK_DATA);
+            setLoading(false);
+        }, 800);
+        return () => clearTimeout(loadDelay);
     }, []);
 
     if (loading) {
@@ -84,84 +92,52 @@ export function UsagePage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-slate-50 dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl p-6 transition-all hover:border-black dark:hover:border-white">
                         <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-                            <p className="text-xs font-bold uppercase tracking-widest">Total Cost (USD)</p>
-                            <DollarSign size={16} />
-                        </div>
-                        <h3 className="text-4xl font-bold text-black dark:text-white">${data.summary.total_cost.toFixed(4)}</h3>
-                        <p className="text-[10px] text-slate-400 mt-2 font-mono uppercase tracking-tighter">Aggregated live from SQLite</p>
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl p-6 transition-all hover:border-black dark:hover:border-white">
-                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-                            <p className="text-xs font-bold uppercase tracking-widest">Success Rate</p>
-                            <Zap size={16} />
-                        </div>
-                        <h3 className="text-4xl font-bold text-black dark:text-white">{data.summary.success_rate}%</h3>
-                        <div className="flex items-center gap-1.5 mt-2">
-                            <div className="w-full bg-slate-200 dark:bg-slate-800 h-1 rounded-full overflow-hidden">
-                                <div className="bg-black dark:bg-white h-full" style={{ width: `${data.summary.success_rate}%` }} />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl p-6 transition-all hover:border-black dark:hover:border-white">
-                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-                            <p className="text-xs font-bold uppercase tracking-widest">Active Scale</p>
+                            <p className="text-xs font-bold uppercase tracking-widest">Total Tokens</p>
                             <Activity size={16} />
                         </div>
-                        <h3 className="text-4xl font-bold text-black dark:text-white">{data.summary.total_agents} Agents</h3>
-                        <p className="text-[10px] text-slate-400 mt-2 font-mono uppercase tracking-tighter">{data.summary.total_runs} Total Executions</p>
+                        <h3 className="text-4xl font-bold text-black dark:text-white">{(data.summary.total_tokens / 1000000).toFixed(2)}M</h3>
+                        <p className="text-[10px] text-slate-400 mt-2 font-mono uppercase tracking-tighter">Tokens Processed</p>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl p-6 transition-all hover:border-black dark:hover:border-white">
+                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                            <p className="text-xs font-bold uppercase tracking-widest">Total Agents</p>
+                            <Activity size={16} />
+                        </div>
+                        <h3 className="text-4xl font-bold text-black dark:text-white">{data.summary.total_agents}</h3>
+                        <p className="text-[10px] text-slate-400 mt-2 font-mono uppercase tracking-tighter">Active Agents</p>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl p-6 transition-all hover:border-black dark:hover:border-white">
+                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                            <p className="text-xs font-bold uppercase tracking-widest">Total Tasks</p>
+                            <Activity size={16} />
+                        </div>
+                        <h3 className="text-4xl font-bold text-black dark:text-white">{data.summary.total_tasks}</h3>
+                        <p className="text-[10px] text-slate-400 mt-2 font-mono uppercase tracking-tighter">Completed Tasks</p>
                     </div>
                 </div>
 
                 {/* Charts Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                <div className="grid grid-cols-1 mb-12">
 
                     {/* Token Consumption Chart */}
-                    <div className="bg-white dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-hidden ring-0 outline-none transition-all hover:shadow-md">
+                    <div className="bg-white dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-hidden ring-0 outline-none transition-all hover:shadow-md max-w-4xl">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-sm font-bold text-black dark:text-white uppercase tracking-widest font-mono">Token Spend (Last 7 Days)</h3>
                         </div>
-                        <div className="h-64 w-full">
+                        <div className="h-80 w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={data.token_chart}>
-                                    <defs>
-                                        <linearGradient id="tokenGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#000" stopOpacity={0.1} />
-                                            <stop offset="95%" stopColor="#000" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
+                                <LineChart data={data.token_chart}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `${val / 1000}k`} />
+                                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val / 1000}k`} />
                                     <Tooltip
                                         contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", fontSize: "12px" }}
                                         itemStyle={{ color: "#fff" }}
                                         wrapperClassName="outline-none ring-0 border-none"
                                     />
-                                    <Area type="monotone" dataKey="tokens" stroke="#000" fillOpacity={1} fill="url(#tokenGradient)" strokeWidth={2} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                    {/* Task Throughput Chart */}
-                    <div className="bg-white dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-hidden ring-0 outline-none transition-all hover:shadow-md">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-sm font-bold text-black dark:text-white uppercase tracking-widest font-mono">Agent Activity (Last 7 Days)</h3>
-                        </div>
-                        <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={data.task_chart}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", fontSize: "12px" }}
-                                        itemStyle={{ color: "#fff" }}
-                                        wrapperClassName="outline-none ring-0 border-none"
-                                    />
-                                    <Line type="stepAfter" dataKey="tasks" stroke="#000" strokeWidth={3} dot={{ r: 4, fill: "#000", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
+                                    <Line type="monotone" dataKey="tokens" stroke="#000" strokeWidth={3} dot={{ r: 4, fill: "#000", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>

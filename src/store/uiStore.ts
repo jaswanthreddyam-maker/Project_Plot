@@ -55,6 +55,8 @@ export interface TaskConfig {
     description: string;
     expected_output: string;
     is_structured: boolean;
+    agentId?: string; // Mapped agent ID for execution
+    status?: "Pending" | "Running" | "Completed" | "Failed"; // current execution status
 }
 
 export interface KnowledgeSource {

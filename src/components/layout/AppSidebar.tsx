@@ -170,7 +170,11 @@ export default function AppSidebar() {
 
     const addAgent = () => {
         const id = crypto.randomUUID();
-        setAgentConfig([...agentConfig, { id, role: "New Agent", goal: "", backstory: "", provider: activeProviders[0] || "openai", tools: [] }]);
+        let defaultRole = "Untitled Agent";
+        if (agentConfig.length === 0) defaultRole = "Research Agent";
+        else if (agentConfig.length === 1) defaultRole = "Writer Agent";
+
+        setAgentConfig([...agentConfig, { id, role: defaultRole, goal: "", backstory: "", provider: activeProviders[0] || "openai", tools: [] }]);
         setSelectedAgentId(id);
     };
 
@@ -293,16 +297,43 @@ export default function AppSidebar() {
                             </div>
                             <div className="space-y-0.5">
                                 {taskConfig.map((task) => (
-                                    <button
+                                    <div
                                         key={task.id}
                                         onClick={() => setSelectedTaskId(task.id)}
-                                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${selectedTaskId === task.id
+                                        className={`group flex items-center justify-between w-full px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${selectedTaskId === task.id
                                             ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold"
                                             : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                                             }`}
                                     >
-                                        <span className="line-clamp-1">{task.description || "Untitled Task"}</span>
-                                    </button>
+                                        <div className="flex items-center gap-2 overflow-hidden flex-1 pr-2">
+                                            <span className="line-clamp-1 truncate">{task.description || "Untitled Task"}</span>
+                                            {task.status && (
+                                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0
+                                                    ${task.status === 'Pending' ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : ''}
+                                                    ${task.status === 'Running' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' : ''}
+                                                    ${task.status === 'Completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : ''}
+                                                    ${task.status === 'Failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' : ''}
+                                                `}>
+                                                    {task.status}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <select
+                                            value={task.agentId || ""}
+                                            onChange={(e) => {
+                                                e.stopPropagation();
+                                                setTaskConfig(taskConfig.map(t => t.id === task.id ? { ...t, agentId: e.target.value } : t));
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="bg-white dark:bg-slate-800 text-[10px] border border-slate-200 dark:border-slate-700 rounded pl-1 pr-4 py-0.5 outline-none focus:ring-1 focus:ring-indigo-500 max-w-[80px] text-slate-500 dark:text-slate-400 truncate appearance-none"
+                                            style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,<svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="%2394a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 2px center', backgroundSize: '10px' }}
+                                        >
+                                            <option value="">Unassigned</option>
+                                            {agentConfig.map((a) => (
+                                                <option key={a.id} value={a.id}>{a.role || "Untitled Agent"}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 ))}
                             </div>
                         </div>
