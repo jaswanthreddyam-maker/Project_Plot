@@ -12,7 +12,8 @@ export default function OtherToolsMenu() {
         isToolExecuting,
         codeMentorMode,
         toggleCodeMentorMode,
-        setActiveAmpRoute
+        setActiveAmpRoute,
+        setActiveWorkspace
     } = useUIStore();
 
     const [loadingTool, setLoadingTool] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export default function OtherToolsMenu() {
         setLoadingTool(toolId);
 
         if (toolId === "PlotAutonomous") {
+            setActiveWorkspace("autonomous");
             setActiveAmpRoute("agents-repository");
         }
 

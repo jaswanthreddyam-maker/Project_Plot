@@ -352,7 +352,7 @@ export default function WorkspacePage() {
                                 </svg>
                             </button>
                         )}
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Crew Studio</h1>
+                        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Workspace</h1>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -499,6 +499,13 @@ export default function WorkspacePage() {
                         Back to Chat
                     </button>
                     <h1 className="text-xl font-bold text-gray-900 dark:text-white">PlotAI Workspace</h1>
+                </div>
+                <div className="flex items-center gap-3">
+                    <AssistantToggle />
+                    <div className="relative flex items-center gap-3">
+                        <OtherToolsToggle />
+                        <OtherToolsMenu />
+                    </div>
                 </div>
             </header>
 
