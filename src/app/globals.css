@@ -14,6 +14,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Global Button Theme Fix ────────────────────────────────── */
+button:not([role="tab"]):not(.nav-item) {
+  @apply transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Light Mode: Black buttons with white text */
+button:not(.nav-item):not(.ghost-btn) {
+  @apply bg-black text-white hover:bg-gray-800 border border-black;
+}
+
+/* Dark Mode: White buttons with black text */
+.dark button:not(.nav-item):not(.ghost-btn) {
+  @apply bg-white text-black hover:bg-slate-200 border border-white;
+}
+
+/* Exceptions for specific UI elements that shouldn't flip completely */
+.nav-item,
+.ghost-btn {
+  @apply bg-transparent border-none text-inherit;
+}
+
 /* Custom scrollbar */
 .scrollbar-thin::-webkit-scrollbar {
   width: 5px;

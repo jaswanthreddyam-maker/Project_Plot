@@ -12,6 +12,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, Component, type ReactNode } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAssistantStore } from "@/store/assistantStore";
 import { runAssistant } from "@/app/actions/ai";
 import { logPrompt, logResponse } from "@/core/ai/telemetry";
@@ -199,122 +200,133 @@ function AssistantPanel({ getContext }: AssistantOverlayProps) {
         chatHistory,
     ]);
 
-    if (!isActive) return null;
-
     return (
-        <div
-            className={`
-                fixed top-0 right-0 z-40
-                w-full sm:w-[400px] h-full
-                bg-white dark:bg-[#171717] border-l border-gray-200 dark:border-slate-800 shadow-2xl
-                flex flex-col
-                animate-[slideInRight_0.3s_ease-out]
-                transition-colors
-            `}
-            style={{
-                animationFillMode: "forwards",
-            }}
-        >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-slate-800 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800/80">
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Plot Assistant</h2>
-                </div>
-                <button
-                    onClick={() => useAssistantStore.getState().setAssistantActive(false)}
-                    className="p-1.5 rounded-md hover:bg-gray-200/60 dark:hover:bg-slate-700 transition-colors"
+        <AnimatePresence>
+            {isActive && (
+                <motion.div
+                    initial={{ x: "100%", opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: "100%", opacity: 0 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className={`
+                        fixed top-0 right-0 z-40
+                        w-full sm:w-[420px] h-full
+                        bg-white/95 dark:bg-[#171717]/95 
+                        backdrop-blur-xl
+                        border-l border-gray-200 dark:border-slate-800 shadow-2xl
+                        flex flex-col
+                        md:mr-4 md:mt-4 md:mb-4 md:h-[calc(100vh-32px)]
+                        md:rounded-2xl overflow-hidden
+                    `}
                 >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500 dark:text-gray-400">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                </button>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-                {chatHistory.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center mb-4 border border-violet-200/50 dark:border-slate-600">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-violet-600 dark:text-violet-400">
-                                <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
-                            </svg>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-800 backdrop-blur-md bg-white/50 dark:bg-slate-900/50 sticky top-0 z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                            <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 tracking-tight">Plot Assistant</h2>
                         </div>
-                        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-300 mb-1">
-                            How can I help?
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                            I can help you navigate Plot, search docs, and automate actions in the workspace.
-                        </p>
+                        <button
+                            onClick={() => useAssistantStore.getState().setAssistantActive(false)}
+                            className="p-2 rounded-xl bg-transparent hover:bg-gray-200/60 dark:hover:bg-slate-700 transition-colors border-none text-gray-500 dark:text-gray-400"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                        </button>
                     </div>
-                ) : (
-                    <>
-                        {chatHistory.map((msg) => (
-                            <ChatMessage key={msg.id} message={msg} />
-                        ))}
-                    </>
-                )}
 
-                {/* Streaming indicator */}
-                {isStreaming && (
-                    <div className="flex justify-start mb-3">
-                        <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3 border border-gray-200">
-                            <div className="flex gap-1">
-                                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-thin">
+                        {chatHistory.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                                <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className="w-16 h-16 rounded-3xl bg-black dark:bg-white flex items-center justify-center mb-6 shadow-xl"
+                                >
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white dark:text-black">
+                                        <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
+                                    </svg>
+                                </motion.div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 tracking-tight">
+                                    How can I help?
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-[240px] mx-auto">
+                                    I can help you navigate Plot, search docs, and automate actions in the workspace.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {chatHistory.map((msg) => (
+                                    <ChatMessage key={msg.id} message={msg} />
+                                ))}
+                            </>
+                        )}
+
+                        {/* Streaming indicator */}
+                        {isStreaming && (
+                            <div className="flex justify-start mb-3">
+                                <div className="bg-gray-100 dark:bg-slate-800 rounded-2xl rounded-bl-sm px-5 py-3 border border-gray-200 dark:border-slate-700">
+                                    <div className="flex gap-1.5">
+                                        <div className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                                        <div className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                                        <div className="w-1.5 h-1.5 bg-black dark:bg-white rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Input - Floating Pill */}
+                    <div className="px-4 py-6 border-none bg-transparent">
+                        <div className="relative max-w-[95%] mx-auto">
+                            {cooldownSeconds > 0 && (
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 shadow-sm backdrop-blur-md">
+                                    <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">
+                                        Cooldown: {cooldownSeconds}s
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-800 p-1.5 rounded-full border border-gray-200 dark:border-slate-700 shadow-lg focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 transition-all">
+                                <input
+                                    suppressHydrationWarning
+                                    ref={inputRef}
+                                    type="text"
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSubmit();
+                                        }
+                                    }}
+                                    placeholder={cooldownSeconds > 0 ? `Please wait...` : "Ask Plot Assistant..."}
+                                    disabled={isStreaming || cooldownSeconds > 0}
+                                    className="flex-1 ml-4 py-2 bg-transparent border-none text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-0"
+                                />
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={!inputValue.trim() || isStreaming || cooldownSeconds > 0}
+                                    className={`
+                                        p-2.5 rounded-full transition-all duration-300
+                                        ${inputValue.trim() ? "scale-100 opacity-100" : "scale-90 opacity-0"}
+                                        bg-black text-white dark:bg-white dark:text-black border-none
+                                    `}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <line x1="22" y1="2" x2="11" y2="13" />
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     </div>
-                )}
-
-                <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-[#171717]">
-                {cooldownSeconds > 0 && (
-                    <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-amber-600 dark:text-amber-500" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                        <span className="text-xs text-amber-700 dark:text-amber-500 font-medium">
-                            Rate limited. Cool down: {cooldownSeconds}s
-                        </span>
-                    </div>
-                )}
-                <div className="flex items-center gap-2">
-                    <input
-                        suppressHydrationWarning
-                        ref={inputRef}
-                        type="text"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSubmit();
-                            }
-                        }}
-                        placeholder={cooldownSeconds > 0 ? `Wait ${cooldownSeconds}s...` : "Ask Plot Assistant..."}
-                        disabled={isStreaming || cooldownSeconds > 0}
-                        className="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 dark:focus:ring-violet-400/30 focus:border-violet-400 dark:focus:border-violet-500 disabled:opacity-50 placeholder:text-gray-400 dark:placeholder:text-gray-500 text-gray-900 dark:text-gray-100 transition-colors"
-                    />
-                    <button
-                        onClick={handleSubmit}
-                        disabled={!inputValue.trim() || isStreaming || cooldownSeconds > 0}
-                        className="p-2 rounded-lg bg-gray-900 dark:bg-slate-700 text-white disabled:opacity-30 hover:bg-gray-800 dark:hover:bg-slate-600 transition-colors"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <line x1="22" y1="2" x2="11" y2="13" />
-                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 }
 
