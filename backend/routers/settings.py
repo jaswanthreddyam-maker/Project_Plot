@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from db_config import SessionLocal, LLMConnection, IntegrationToken
+from db_config import SessionLocal, LLMConnection, IntegrationToken, EnvVariable
 
 settings_router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -38,6 +38,16 @@ class IntegrationResponse(BaseModel):
     id: str
     provider: str
     token_masked: str
+    created_at: str
+
+class EnvVariableRequest(BaseModel):
+    key: str
+    value: str
+
+class EnvResponse(BaseModel):
+    id: str
+    key: str
+    value_masked: str
     created_at: str
 
 
@@ -184,5 +194,79 @@ def delete_integration(provider: str):
         session.delete(conn)
         session.commit()
         return {"status": "deleted", "provider": provider}
+    finally:
+        session.close()
+
+# ── Environment Variables ────────────────────────────────────────
+
+@settings_router.get("/env")
+def get_env_variables():
+    """Return all environment variables with masked values."""
+    session = SessionLocal()
+    try:
+        envs = session.query(EnvVariable).order_by(EnvVariable.created_at.desc()).all()
+        return {
+            "variables": [
+                {
+                    "id": e.id,
+                    "key": e.key,
+                    "value_masked": mask_key(e.value_encrypted),
+                    "created_at": e.created_at.isoformat() if e.created_at else "",
+                }
+                for e in envs
+            ]
+        }
+    finally:
+        session.close()
+
+@settings_router.post("/env")
+def save_env_variable(req: EnvVariableRequest):
+    """Store or update a global environment variable."""
+    if not req.key.strip() or not req.value.strip():
+        raise HTTPException(status_code=400, detail="Key and value are required.")
+
+    session = SessionLocal()
+    try:
+        key = req.key.strip()
+        env_var = session.query(EnvVariable).filter_by(key=key).first()
+        
+        encoded_value = base64.b64encode(req.value.encode("utf-8")).decode("utf-8")
+        
+        if env_var:
+            env_var.value_encrypted = encoded_value
+            env_var.created_at = datetime.utcnow()
+        else:
+            env_var = EnvVariable(
+                id=str(uuid.uuid4()),
+                key=key,
+                value_encrypted=encoded_value,
+                created_at=datetime.utcnow(),
+            )
+            session.add(env_var)
+        
+        session.commit()
+        session.refresh(env_var)
+        return {
+            "variable": {
+                "id": env_var.id,
+                "key": env_var.key,
+                "value_masked": mask_key(env_var.value_encrypted),
+                "created_at": env_var.created_at.isoformat(),
+            }
+        }
+    finally:
+        session.close()
+
+@settings_router.delete("/env/{key}")
+def delete_env_variable(key: str):
+    """Delete an environment variable by key."""
+    session = SessionLocal()
+    try:
+        env_var = session.query(EnvVariable).filter_by(key=key).first()
+        if not env_var:
+            raise HTTPException(status_code=404, detail="Environment variable not found.")
+        session.delete(env_var)
+        session.commit()
+        return {"status": "deleted", "key": key}
     finally:
         session.close()

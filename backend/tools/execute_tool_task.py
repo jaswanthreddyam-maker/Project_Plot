@@ -79,10 +79,18 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
                 # ── Dynamic API Key Injection ─────────────────────────
                 # Fetch API keys from LLMConnections table for each agent's provider
                 import base64
-                from db_config import SessionLocal, LLMConnection
+                from db_config import SessionLocal, LLMConnection, IntegrationToken, EnvVariable
 
                 db_session = SessionLocal()
                 try:
+                    # ── Global Environment Variables ────────────────────
+                    global_envs = db_session.query(EnvVariable).all()
+                    for e in global_envs:
+                        try:
+                            decoded_val = base64.b64decode(e.value_encrypted).decode("utf-8")
+                            os.environ[e.key] = decoded_val
+                        except Exception:
+                            pass
                     PROVIDER_ENV_MAP = {
                         "openai": "OPENAI_API_KEY",
                         "anthropic": "ANTHROPIC_API_KEY",
@@ -110,15 +118,14 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
                 # ── Dynamic Tool Injection ────────────────────────────
                 # Helper to fetch and decrypt integration tokens
                 def get_integration_token(provider_name):
-                    db = SessionLocal()
                     try:
-                        token_record = db.query(IntegrationToken).filter(IntegrationToken.provider == provider_name).first()
+                        token_record = db_session.query(IntegrationToken).filter(IntegrationToken.provider == provider_name).first()
                         if token_record:
                             # Basic base64 decode for development
                             return base64.b64decode(token_record.token_encrypted.encode()).decode()
                         return None
-                    finally:
-                        db.close()
+                    except Exception:
+                        return None
 
                 # Read each agent's tools list and instantiate CrewAI tool objects
                 try:

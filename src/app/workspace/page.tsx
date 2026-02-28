@@ -26,8 +26,8 @@ import LLMConnections from "@/components/autonomous/LLMConnections";
 import ToolsIntegrations from "@/components/autonomous/ToolsIntegrations";
 import Traces from "@/components/autonomous/Traces";
 import Automations from "@/components/autonomous/Automations";
+import EnvVariables from "@/components/autonomous/EnvVariables";
 import {
-    EnvironmentVariablesPage,
     UsagePage,
     BillingPage,
     SettingsPage,
@@ -207,7 +207,7 @@ export default function WorkspacePage() {
             case "traces":
                 return <Traces />;
             case "environment-variables":
-                return <EnvironmentVariablesPage />;
+                return <EnvVariables />;
             case "usage":
                 return <UsagePage />;
             case "billing":

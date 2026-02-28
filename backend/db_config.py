@@ -89,5 +89,13 @@ class AgentTrace(Base):
     logs = Column(String, nullable=True) # JSON or Text containing the step details
     timestamp = Column(DateTime, default=datetime.utcnow)
 
+class EnvVariable(Base):
+    __tablename__ = "env_variables"
+
+    id = Column(String, primary_key=True)
+    key = Column(String, nullable=False, unique=True)
+    value_encrypted = Column(String, nullable=False) # Base64 encoded for now
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 # Auto-create all tables
 Base.metadata.create_all(engine)
