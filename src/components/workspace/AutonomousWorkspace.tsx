@@ -12,7 +12,7 @@ const AGENTS = [
 
 export default function AutonomousWorkspace() {
     const {
-        setActiveWorkspace,
+        setActiveAmpRoute,
         setToolExecutionStart,
         isToolExecuting,
         toolTaskId,
@@ -151,7 +151,7 @@ export default function AutonomousWorkspace() {
                         </div>
                     </div>
                     <button
-                        onClick={() => setActiveWorkspace("chat")}
+                        onClick={() => setActiveAmpRoute("crew-studio")}
                         className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-sm"
                     >
                         Return to Chat
@@ -172,8 +172,8 @@ export default function AutonomousWorkspace() {
                                     key={agent.id}
                                     onClick={() => setSelectedAgent(agent.id)}
                                     className={`flex flex-col items-start p-4 rounded-xl border-2 transition-all text-left ${selectedAgent === agent.id
-                                            ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-500/10"
-                                            : "border-slate-100 dark:border-slate-800 bg-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                                        ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-500/10"
+                                        : "border-slate-100 dark:border-slate-800 bg-transparent hover:border-slate-200 dark:hover:border-slate-700"
                                         }`}
                                 >
                                     <div className="flex items-center gap-2 mb-1">

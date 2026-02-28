@@ -15,6 +15,26 @@ import { persist } from "zustand/middleware";
 
 export type ProviderOption = "openai" | "gemini" | "claude" | "ollama" | "grok";
 
+export type AmpRoute =
+    | "automations"
+    | "crew-studio"
+    | "agents-repository"
+    | "tools-integrations"
+    | "traces"
+    | "llm-connections"
+    | "environment-variables"
+    | "usage"
+    | "billing"
+    | "settings";
+
+export interface LLMConnectionEntry {
+    id: string;
+    provider: string;
+    alias: string;
+    api_key_masked: string;
+    created_at: string;
+}
+
 export interface ConversationSummary {
     id: string;
     title: string;
@@ -89,6 +109,16 @@ interface UIState {
     // ── Workspace Routing ────────────────────────────────
     activeWorkspace: "chat" | "autonomous";
     setActiveWorkspace: (workspace: "chat" | "autonomous") => void;
+
+    // ── Enterprise AMP Routing ───────────────────────────
+    activeAmpRoute: AmpRoute;
+    setActiveAmpRoute: (route: AmpRoute) => void;
+
+    // ── LLM Connections (synced from backend) ────────────
+    llmConnections: LLMConnectionEntry[];
+    setLlmConnections: (connections: LLMConnectionEntry[]) => void;
+    addLlmConnection: (connection: LLMConnectionEntry) => void;
+    removeLlmConnection: (id: string) => void;
 
     // ── Smart Comparison Mode ────────────────────────────
     comparisonMode: boolean;
@@ -244,6 +274,22 @@ export const useUIStore = create<UIState>()(
             activeWorkspace: "chat",
             setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
 
+            // ── Enterprise AMP Routing ───────────────────────────
+            activeAmpRoute: "crew-studio",
+            setActiveAmpRoute: (route) => set({ activeAmpRoute: route }),
+
+            // ── LLM Connections ──────────────────────────────────
+            llmConnections: [],
+            setLlmConnections: (connections) => set({ llmConnections: connections }),
+            addLlmConnection: (connection) =>
+                set((state) => ({
+                    llmConnections: [...state.llmConnections, connection],
+                })),
+            removeLlmConnection: (id) =>
+                set((state) => ({
+                    llmConnections: state.llmConnections.filter((c) => c.id !== id),
+                })),
+
             comparisonMode: false,
             setComparisonMode: (comparisonMode) => set({ comparisonMode }),
 
@@ -302,6 +348,8 @@ export const useUIStore = create<UIState>()(
             partialize: (state) => ({
                 // ONLY persist these properties
                 activeWorkspace: state.activeWorkspace,
+                activeAmpRoute: state.activeAmpRoute,
+                llmConnections: state.llmConnections,
                 isToolExecuting: state.isToolExecuting,
                 toolTaskId: state.toolTaskId,
                 toolExecutionId: state.toolExecutionId,

@@ -1,7 +1,8 @@
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, Column, String, DateTime
+from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
+from datetime import datetime
 
 # SQLite WAL Configuration
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db", "flow_state.db")
@@ -46,3 +47,18 @@ def get_db_session():
 # For custom persistence adapters
 def get_engine():
     return engine
+
+# ── ORM Base & Models ────────────────────────────────────────
+Base = declarative_base()
+
+class LLMConnection(Base):
+    __tablename__ = "llm_connections"
+
+    id = Column(String, primary_key=True)
+    provider = Column(String, nullable=False)
+    alias = Column(String, nullable=True)
+    api_key_encrypted = Column(String, nullable=False)  # base64 encoded
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+# Auto-create all tables
+Base.metadata.create_all(engine)

@@ -11,6 +11,10 @@ from worker import celery_app
 
 app = FastAPI(title="Plot Autonomous AI Orchestrator")
 
+# Register Settings Router
+from routers.settings import settings_router
+app.include_router(settings_router)
+
 # Allow Next.js frontend to talk to FastAPI
 app.add_middleware(
     CORSMiddleware,

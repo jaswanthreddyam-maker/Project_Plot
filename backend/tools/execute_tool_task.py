@@ -74,6 +74,37 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
                 # In a real CrewAI setup, you inject these sources into the Agents or the Crew itself.
                 # For this scaffolding, we pass it into the Flow state.
                 flow.state.knowledge_sources = knowledge_sources
+
+                # ── Dynamic API Key Injection ─────────────────────────
+                # Fetch API keys from LLMConnections table for each agent's provider
+                import base64
+                from db_config import SessionLocal, LLMConnection
+
+                db_session = SessionLocal()
+                try:
+                    PROVIDER_ENV_MAP = {
+                        "openai": "OPENAI_API_KEY",
+                        "anthropic": "ANTHROPIC_API_KEY",
+                        "gemini": "GEMINI_API_KEY",
+                        "google": "GEMINI_API_KEY",
+                        "groq": "GROQ_API_KEY",
+                        "ollama": "OLLAMA_HOST",
+                    }
+                    agents_list = arguments.get("agents", [])
+                    injected_providers = set()
+                    for agent_cfg in agents_list:
+                        provider_name = agent_cfg.get("provider", "").lower().strip()
+                        if provider_name and provider_name not in injected_providers:
+                            conn = db_session.query(LLMConnection).filter_by(
+                                provider=provider_name
+                            ).order_by(LLMConnection.created_at.desc()).first()
+                            if conn:
+                                decoded_key = base64.b64decode(conn.api_key_encrypted).decode("utf-8")
+                                env_var = PROVIDER_ENV_MAP.get(provider_name, f"{provider_name.upper()}_API_KEY")
+                                os.environ[env_var] = decoded_key
+                                injected_providers.add(provider_name)
+                finally:
+                    db_session.close()
                 
                 # Run the Flow
                 final_output = flow.kickoff()
