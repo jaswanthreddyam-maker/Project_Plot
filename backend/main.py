@@ -41,8 +41,7 @@ app.include_router(workspace_router)
 
 # Allow Next.js frontend to talk to FastAPI
 origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "*",
 ]
 
 app.add_middleware(

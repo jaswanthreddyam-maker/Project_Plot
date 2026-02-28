@@ -46,11 +46,11 @@ class VaultKeyResponse(BaseModel):
 def save_vault_key(req: VaultSaveRequest):
     """Encrypts and stores a key in the Vault."""
     if not req.value or not req.value.strip():
-        raise HTTPException(status_code=400, detail="API key cannot be empty. Please paste a valid key.")
+        raise HTTPException(status_code=400, detail="Mawa, key empty ga undhi. Paste chesi save cheyi.")
     
     # Optional basic prefix validation for OpenAI
     if req.key_name == "OPENAI_API_KEY" and not req.value.startswith("sk-") and not req.value.startswith("sk-proj-"):
-        raise HTTPException(status_code=400, detail="Invalid format. OpenAI keys must start with 'sk-'.")
+        raise HTTPException(status_code=400, detail="Rey mawa, idhi valid key kaadhu. Proper OpenAI 'sk-' key ivvu.")
         
     try:
         encrypted_value = fernet.encrypt(req.value.encode()).decode()
