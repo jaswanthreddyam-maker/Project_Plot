@@ -4,7 +4,7 @@ import { useUIStore, AmpRoute, AgentConfig, TaskConfig } from "@/store/uiStore";
 import { API_BASE } from "@/lib/api";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, LayoutTemplate } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
  * Navigation definition — matches CrewAI Enterprise sidebar
@@ -45,6 +45,11 @@ const NAV_SECTIONS: NavSection[] = [
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                     </svg>
                 ),
+            },
+            {
+                id: "templates",
+                label: "Templates",
+                icon: <LayoutTemplate size={16} strokeWidth={2} />,
             },
             {
                 id: "agents-repository",

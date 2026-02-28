@@ -18,6 +18,7 @@ export type ProviderOption = "openai" | "gemini" | "claude" | "ollama" | "grok";
 export type AmpRoute =
     | "automations"
     | "crew-studio"
+    | "templates"
     | "agents-repository"
     | "tools-integrations"
     | "traces"

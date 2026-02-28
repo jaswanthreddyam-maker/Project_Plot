@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Float
+from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Float, Integer, JSON
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
 from datetime import datetime
@@ -145,6 +145,16 @@ class WorkspaceMetadata(Base):
     app_name = Column(String, default="PlotAI Workspace")
     instance_id = Column(String, unique=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Template(Base):
+    __tablename__ = "templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    description = Column(String, nullable=True)
+    icon_name = Column(String, nullable=True)
+    required_keys = Column(JSON, nullable=True)
+    workflow_config = Column(JSON, nullable=True)
 
 # Auto-create all tables
 Base.metadata.create_all(engine)

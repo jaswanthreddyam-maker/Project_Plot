@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore, AgentConfig, TaskConfig } from "@/store/uiStore";
 import { API_BASE } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Brain, Calendar, User, Wrench, Play, ArrowRightLeft, Repeat, UserCheck } from "lucide-react";
+import { Lock, Brain, Calendar, User, Wrench, Play, ArrowRightLeft, Repeat, UserCheck, LayoutTemplate } from "lucide-react";
 import { ApprovalOverlay } from "./ApprovalOverlay";
 
 import {
@@ -107,6 +107,12 @@ export default function CrewStudio() {
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [scheduleInterval, setScheduleInterval] = useState("Every Hour");
     const [isScheduling, setIsScheduling] = useState(false);
+
+    // ── Save Template State ──────────────────────────────────────
+    const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+    const [saveTemplateData, setSaveTemplateData] = useState({ name: "", description: "", icon_name: "LayoutTemplate" });
+    const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
 
     const bottomRef = useRef<HTMLDivElement>(null);
     const resetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -504,6 +510,47 @@ export default function CrewStudio() {
         }
     };
 
+    const saveAsTemplate = async () => {
+        if (!saveTemplateData.name.trim() || !saveTemplateData.description.trim()) {
+            alert("Please provide a name and description.");
+            return;
+        }
+        setIsSavingTemplate(true);
+        try {
+            // Extract required keys dynamically based on agents' providers
+            const required_keys = Array.from(new Set(agentConfig.map(a => a.provider.toLowerCase())));
+
+            const payload = {
+                name: saveTemplateData.name,
+                description: saveTemplateData.description,
+                icon_name: saveTemplateData.icon_name,
+                required_keys: required_keys,
+                workflow_config: {
+                    agentConfig,
+                    taskConfig
+                }
+            };
+
+            const res = await fetch(`${API_BASE}/api/templates/save`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                setShowSaveTemplateModal(false);
+                setSaveTemplateData({ name: "", description: "", icon_name: "LayoutTemplate" });
+                alert("Workflow saved as template successfully!");
+            } else {
+                alert("Failed to save template.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error saving template.");
+        } finally {
+            setIsSavingTemplate(false);
+        }
+    };
+
     return (
         <div className="flex h-full w-full bg-slate-50 dark:bg-[#171717] overflow-hidden relative autonomous-theme">
 
@@ -519,7 +566,14 @@ export default function CrewStudio() {
 
                     <div className="flex items-center gap-3 relative pointer-events-auto">
                         <button
-                            onClick={() => setShowScheduleModal(!showScheduleModal)}
+                            onClick={() => { setShowScheduleModal(false); setShowSaveTemplateModal(!showSaveTemplateModal); }}
+                            disabled={isDeploying || isToolExecuting || isSavingTemplate}
+                            className="px-5 py-2.5 rounded-full font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm"
+                        >
+                            <LayoutTemplate size={16} /> Save as Template
+                        </button>
+                        <button
+                            onClick={() => { setShowSaveTemplateModal(false); setShowScheduleModal(!showScheduleModal); }}
                             disabled={isDeploying || isToolExecuting || isScheduling}
                             className="px-5 py-2.5 rounded-full font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm"
                         >
@@ -567,6 +621,51 @@ export default function CrewStudio() {
                                             className="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                                         >
                                             {isScheduling ? "Saving..." : "Confirm Schedule"}
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Save Template Popover */}
+                        <AnimatePresence>
+                            {showSaveTemplateModal && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    className="absolute top-14 right-0 mt-2 w-72 bg-white dark:bg-[#111] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-50 overflow-hidden"
+                                >
+                                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-black">
+                                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Save to Templates</h4>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">Publish this workflow to the generic templates gallery.</p>
+                                    </div>
+                                    <div className="p-4 space-y-3">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Template Name</label>
+                                            <input
+                                                value={saveTemplateData.name}
+                                                onChange={(e) => setSaveTemplateData({ ...saveTemplateData, name: e.target.value })}
+                                                placeholder="e.g. Viral Thread Writer"
+                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none ring-0 dark:text-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Description</label>
+                                            <textarea
+                                                value={saveTemplateData.description}
+                                                onChange={(e) => setSaveTemplateData({ ...saveTemplateData, description: e.target.value })}
+                                                placeholder="What does this workflow do?"
+                                                rows={2}
+                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none ring-0 dark:text-white resize-none"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={saveAsTemplate}
+                                            disabled={isSavingTemplate || !saveTemplateData.name.trim()}
+                                            className="w-full py-2.5 mt-2 bg-black text-white dark:bg-white dark:text-black rounded-xl text-sm font-bold transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 outline-none ring-0 shadow-sm"
+                                        >
+                                            {isSavingTemplate ? "Saving..." : "Save Template"}
                                         </button>
                                     </div>
                                 </motion.div>

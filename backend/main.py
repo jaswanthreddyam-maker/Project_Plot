@@ -39,6 +39,11 @@ app.include_router(config_router)
 from routers.workspace import router as workspace_router
 app.include_router(workspace_router)
 
+# Register Templates Router
+from routers.templates import router as templates_router
+app.include_router(templates_router)
+
+
 # Allow Next.js frontend to talk to FastAPI
 origins = [
     "*",
