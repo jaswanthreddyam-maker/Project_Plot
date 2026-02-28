@@ -90,6 +90,31 @@ async def execute_tool(req: ToolExecutionRequest):
     
     return {"message": "Execution started", "task_id": task.id, "execution_id": execution_id}
 
+@app.post("/api/tools/schedule", status_code=201)
+async def schedule_flow_endpoint(req: Request):
+    """
+    Saves the cron configuration to the database for Celery Beat polling.
+    """
+    payload = await req.json()
+    interval = payload.get("interval", "Every Hour")
+    arguments = payload.get("arguments", {})
+    
+    import uuid, json
+    from db_config import SessionLocal, ScheduledFlow
+    db = SessionLocal()
+    try:
+        new_sch = ScheduledFlow(
+            id=str(uuid.uuid4()),
+            cron_expression=interval,
+            payload_json=json.dumps(arguments)
+        )
+        db.add(new_sch)
+        db.commit()
+    finally:
+        db.close()
+        
+    return {"status": "success", "message": f"Successfully scheduled flow for '{interval}'"}
+
 
 @app.get("/stream/{task_id}")
 async def stream_execution(request: Request, task_id: str):

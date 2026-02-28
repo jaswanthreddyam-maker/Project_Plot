@@ -60,5 +60,12 @@ class LLMConnection(Base):
     api_key_encrypted = Column(String, nullable=False)  # base64 encoded
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class ScheduledFlow(Base):
+    __tablename__ = "scheduled_flows"
+
+    id = Column(String, primary_key=True)
+    cron_expression = Column(String, nullable=False) # e.g. 'every_hour', 'daily_9am'
+    payload_json = Column(String, nullable=False) # Store the arguments for PlotAutonomousFlow
+
 # Auto-create all tables
 Base.metadata.create_all(engine)

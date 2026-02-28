@@ -158,3 +158,40 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
         error_msg = str(e)
         redis_client.rpush(stream_channel, f"__ERROR__{error_msg}")
         raise e
+
+import uuid
+import datetime
+
+@shared_task(name="tools.execute_tool_task.scheduled_flow_kickoff", bind=True)
+def scheduled_flow_kickoff(self, payload: dict):
+    # Wrapper to instantiate and run PlotAutonomousFlow directly
+    execution_id = f"sch-{str(uuid.uuid4())[:8]}"
+    run_agent_tool("PlotAutonomous", payload, execution_id)
+
+@shared_task(name="tools.execute_tool_task.poll_schedules", bind=True)
+def poll_schedules(self):
+    """
+    Polled every minute by Celery Beat.
+    Checks the SQLite DB for ScheduledFlow entries and triggers them if it's time.
+    """
+    from db_config import SessionLocal, ScheduledFlow
+    db_session = SessionLocal()
+    try:
+        flows = db_session.query(ScheduledFlow).all()
+        now = datetime.datetime.utcnow()
+        for f in flows:
+            trigger = False
+            # Very simple cron simulation for exact match string parsing
+            if f.cron_expression == "Every 1 Minute":
+                trigger = True
+            elif f.cron_expression == "Every Hour" and now.minute == 0:
+                trigger = True
+            elif f.cron_expression == "Daily at 9 AM" and now.hour == 9 and now.minute == 0:
+                trigger = True
+                
+            if trigger:
+                payload = json.loads(f.payload_json)
+                scheduled_flow_kickoff.delay(payload)
+                
+    finally:
+        db_session.close()

@@ -26,3 +26,10 @@ celery_app.conf.update(
     task_soft_time_limit=270, # Soft limit to allow gracefully catching the exception
     worker_concurrency=4, # Depends on deployment scale
 )
+
+celery_app.conf.beat_schedule = {
+    'poll-schedules-every-minute': {
+        'task': 'tools.execute_tool_task.poll_schedules',
+        'schedule': 60.0
+    }
+}

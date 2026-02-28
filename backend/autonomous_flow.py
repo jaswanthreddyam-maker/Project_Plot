@@ -76,6 +76,14 @@ class PlotAutonomousFlow(Flow[PlotState]):
             tasks=crew_tasks,
             process=Process.sequential,
             verbose=True,
+            # Enabling Memory Systems (Short-term, Long-term, Entity)
+            memory=True,
+            embedder={
+                "provider": "openai",
+                "config": {
+                    "model": "text-embedding-3-small"
+                }
+            },
             # Assigning the knowledge sources to the entire Crew context instead as fallback
             knowledge_sources=self.state.knowledge_sources if self.state.knowledge_sources else None
         )

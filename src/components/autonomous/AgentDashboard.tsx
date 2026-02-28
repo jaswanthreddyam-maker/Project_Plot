@@ -22,6 +22,12 @@ export default function AgentDashboard() {
     const [isDeploying, setIsDeploying] = useState(false);
     const [terminalError, setTerminalError] = useState<string | null>(null);
     const [terminalChunks, setTerminalChunks] = useState<string[]>([]);
+
+    // ── Scheduling State ──────────────────────────────────────
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [scheduleInterval, setScheduleInterval] = useState("Every Hour");
+    const [isScheduling, setIsScheduling] = useState(false);
+
     const bottomRef = useRef<HTMLDivElement>(null);
     const resetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -191,6 +197,34 @@ export default function AgentDashboard() {
         }
     };
 
+    const scheduleFlow = async () => {
+        setIsScheduling(true);
+        try {
+            const payload = {
+                objective: "Scheduled Plot workflow",
+                knowledge_sources: activeKnowledgeSources,
+                agents: agentConfig,
+                tasks: taskConfig
+            };
+            const res = await fetch("http://localhost:8000/api/tools/schedule", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ interval: scheduleInterval, arguments: payload })
+            });
+            if (res.ok) {
+                setShowScheduleModal(false);
+                alert(`Successfully scheduled for: ${scheduleInterval}`);
+            } else {
+                alert("Failed to schedule workflow.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error scheduling workflow.");
+        } finally {
+            setIsScheduling(false);
+        }
+    };
+
     return (
         <div className="flex h-full w-full bg-slate-50 dark:bg-[#171717] overflow-hidden relative">
 
@@ -204,15 +238,60 @@ export default function AgentDashboard() {
                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Agent Editor</h2>
                             <p className="text-sm text-slate-500 dark:text-slate-400">Configure your autonomous agents and tasks</p>
                         </div>
-                        <button
-                            onClick={deployCrew}
-                            disabled={isDeploying || isToolExecuting}
-                            className="px-6 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-900 disabled:opacity-50 transition-all shadow-md shadow-black/20 flex items-center gap-2"
-                        >
-                            {isDeploying || isToolExecuting ? (
-                                <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Deploying...</>
-                            ) : "Deploy Plot"}
-                        </button>
+                        <div className="flex items-center gap-3 relative">
+                            <button
+                                onClick={() => setShowScheduleModal(!showScheduleModal)}
+                                disabled={isDeploying || isToolExecuting || isScheduling}
+                                className="px-5 py-2.5 rounded-full font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm"
+                            >
+                                ⏱️ Schedule
+                            </button>
+                            <button
+                                onClick={deployCrew}
+                                disabled={isDeploying || isToolExecuting}
+                                className="px-6 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-900 disabled:opacity-50 transition-all shadow-md shadow-black/20 flex items-center gap-2"
+                            >
+                                {isDeploying || isToolExecuting ? (
+                                    <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Deploying...</>
+                                ) : "Deploy Plot"}
+                            </button>
+
+                            {/* Schedule Popover */}
+                            <AnimatePresence>
+                                {showScheduleModal && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        className="absolute top-14 right-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden"
+                                    >
+                                        <div className="p-4 border-b border-slate-100 dark:border-slate-700">
+                                            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Schedule Automation</h4>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Run this workflow automatically at the selected interval.</p>
+                                        </div>
+                                        <div className="p-4 space-y-3">
+                                            <select
+                                                value={scheduleInterval}
+                                                onChange={(e) => setScheduleInterval(e.target.value)}
+                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:text-white"
+                                            >
+                                                <option value="Every 1 Minute">Every 1 Minute (Testing)</option>
+                                                <option value="Every Hour">Every Hour</option>
+                                                <option value="Daily at 9 AM">Daily at 9 AM</option>
+                                                <option value="Weekly (Monday)">Weekly (Monday)</option>
+                                            </select>
+                                            <button
+                                                onClick={scheduleFlow}
+                                                disabled={isScheduling}
+                                                className="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                                            >
+                                                {isScheduling ? "Saving..." : "Confirm Schedule"}
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
 
                     {/* Inline Error Alert */}
@@ -243,8 +322,14 @@ export default function AgentDashboard() {
                         {/* Agent Form */}
                         {currentAgent && (
                             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Agent Configuration</h3>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center justify-between">
+                                    Agent Configuration
+                                </h3>
+
                                 <div className="space-y-4">
+                                    <div className="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 text-xs font-semibold rounded-lg flex items-center gap-2 border border-indigo-100 dark:border-indigo-800/50">
+                                        <span>🧠</span> Long-Term Memory (Active)
+                                    </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Role</label>
                                         <input
