@@ -153,23 +153,42 @@ export default function ToolsIntegrations() {
     const addConnectedIntegration = useUIStore((s) => s.addConnectedIntegration);
     const removeConnectedIntegration = useUIStore((s) => s.removeConnectedIntegration);
 
-    // Fetch initial state
+    // Map tool.id to Vault key names for development tools
+    const getKeyName = (toolId: string) => {
+        if (toolId === "github") return "GITHUB_TOKEN";
+        if (toolId === "asana") return "ASANA_ACCESS_TOKEN";
+        if (toolId === "jira") return "JIRA_API_TOKEN";
+        if (toolId === "enterprise-auth") return "ENTERPRISE_AUTH_TOKEN";
+        return `${toolId.toUpperCase().replace(/-/g, "_")}_TOKEN`;
+    };
+
+    // Reverse map for setting UI state from Vault keys
+    const getTokenId = (keyName: string) => {
+        if (keyName === "GITHUB_TOKEN") return "github";
+        if (keyName === "ASANA_ACCESS_TOKEN") return "asana";
+        if (keyName === "JIRA_API_TOKEN") return "jira";
+        if (keyName === "ENTERPRISE_AUTH_TOKEN") return "enterprise-auth";
+        return keyName.replace("_TOKEN", "").toLowerCase().replace(/_/g, "-");
+    };
+
+    // Fetch initial state from Vault
     useEffect(() => {
         const fetchIntegrations = async () => {
             try {
-                const res = await fetch("/api/settings/integrations");
+                const res = await fetch("http://localhost:8000/api/vault/list");
                 if (res.ok) {
                     const data = await res.json();
 
                     // Extract enterprise auth token if it exists
-                    const enterpriseToken = data.integrations.find((t: any) => t.provider === "enterprise-auth");
+                    const enterpriseToken = data.find((t: any) => t.key_name === "ENTERPRISE_AUTH_TOKEN");
                     if (enterpriseToken) {
-                        setAuthToken(enterpriseToken.token_masked);
+                        setAuthToken(enterpriseToken.masked_value);
                     }
 
-                    // Extract all connected tools (excluding enterprise-auth)
-                    const connectedProviders = data.integrations
-                        .map((t: any) => t.provider)
+                    // Extract all connected DEV categorised tools
+                    const connectedProviders = data
+                        .filter((t: any) => t.category === "DEV")
+                        .map((t: any) => getTokenId(t.key_name))
                         .filter((p: string) => p !== "enterprise-auth");
 
                     setConnectedIntegrations(connectedProviders);
@@ -382,10 +401,14 @@ export default function ToolsIntegrations() {
                                                             if (!token) return;
                                                             setLoadingAction(`connect-${tool.id}`);
                                                             try {
-                                                                const res = await fetch("/api/settings/integrations", {
+                                                                const res = await fetch("http://localhost:8000/api/vault/save", {
                                                                     method: "POST",
                                                                     headers: { "Content-Type": "application/json" },
-                                                                    body: JSON.stringify({ provider: tool.id, token })
+                                                                    body: JSON.stringify({
+                                                                        key_name: getKeyName(tool.id),
+                                                                        value: token,
+                                                                        category: "DEV"
+                                                                    })
                                                                 });
                                                                 if (res.ok) {
                                                                     addConnectedIntegration(tool.id);
@@ -408,7 +431,7 @@ export default function ToolsIntegrations() {
                                                             onClick={async () => {
                                                                 setLoadingAction(`disconnect-${tool.id}`);
                                                                 try {
-                                                                    const res = await fetch(`/api/settings/integrations/${tool.id}`, {
+                                                                    const res = await fetch(`http://localhost:8000/api/vault/delete/${getKeyName(tool.id)}`, {
                                                                         method: "DELETE"
                                                                     });
                                                                     if (res.ok) {
@@ -472,17 +495,21 @@ export default function ToolsIntegrations() {
                                     onClick={async () => {
                                         setLoadingAction("save-enterprise-auth");
                                         try {
-                                            const res = await fetch("/api/settings/integrations", {
+                                            const res = await fetch("http://localhost:8000/api/vault/save", {
                                                 method: "POST",
                                                 headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({ provider: "enterprise-auth", token: authToken })
+                                                body: JSON.stringify({
+                                                    key_name: "ENTERPRISE_AUTH_TOKEN",
+                                                    value: authToken,
+                                                    category: "DEV"
+                                                })
                                             });
                                             if (res.ok) {
-                                                const data = await res.json();
-                                                setAuthToken(data.integration.token_masked);
                                                 // Temporarily show checkmark by mimicking copied Token state
                                                 setCopiedToken(true);
                                                 setTimeout(() => setCopiedToken(false), 2000);
+                                                // Since the endpoint doesn't return the masked token immediately, 
+                                                // we can leave the input as-is or refetch. Next reload it will be masked.
                                             }
                                         } catch (err) {
                                             console.error("Failed to save auth token", err);

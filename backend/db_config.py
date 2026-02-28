@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, String, DateTime
+from sqlalchemy import create_engine, Column, String, DateTime, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
 from datetime import datetime
@@ -96,6 +96,56 @@ class EnvVariable(Base):
     key = Column(String, nullable=False, unique=True)
     value_encrypted = Column(String, nullable=False) # Base64 encoded for now
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class UsageLog(Base):
+    __tablename__ = "usage_logs"
+
+    id = Column(String, primary_key=True)
+    execution_id = Column(String, nullable=False, index=True)
+    model = Column(String, nullable=False)
+    prompt_tokens = Column(String, default="0") # Stored as string to avoid overflows if huge
+    completion_tokens = Column(String, default="0")
+    total_cost = Column(String, default="0.0") # USD
+    status = Column(String, default="success") # success / failed
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+class AgentApproval(Base):
+    __tablename__ = "agent_approvals"
+
+    id = Column(String, primary_key=True)
+    execution_id = Column(String, nullable=False, index=True)
+    tool_name = Column(String, nullable=False)
+    arguments = Column(String, nullable=True) # JSON
+    reasoning = Column(String, nullable=True)
+    status = Column(String, default="pending") # pending, approved, denied
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+class VaultKey(Base):
+    __tablename__ = "vault_keys"
+
+    id = Column(String, primary_key=True)
+    key_name = Column(String, nullable=False, unique=True, index=True)
+    encrypted_value = Column(String, nullable=False)
+    category = Column(String, nullable=False) # e.g., 'LLM', 'SEARCH', 'DEV'
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class GlobalConfig(Base):
+    __tablename__ = "global_configs"
+
+    id = Column(String, primary_key=True)
+    default_model = Column(String, default="gpt-4o")
+    temperature = Column(Float, default=0.7)
+    memory_enabled = Column(Boolean, default=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class WorkspaceMetadata(Base):
+    __tablename__ = "workspace_metadata"
+
+    id = Column(String, primary_key=True)
+    app_name = Column(String, default="PlotAI Workspace")
+    instance_id = Column(String, unique=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 # Auto-create all tables
 Base.metadata.create_all(engine)

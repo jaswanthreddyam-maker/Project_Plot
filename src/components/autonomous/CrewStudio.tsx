@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore, AgentConfig, TaskConfig } from "@/store/uiStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Brain, Calendar, User, Wrench, Play } from "lucide-react";
+import { Lock, Brain, Calendar, User, Wrench, Play, ArrowRightLeft, Repeat, UserCheck } from "lucide-react";
+import { ApprovalOverlay } from "./ApprovalOverlay";
 
 import {
     ReactFlow,
@@ -24,40 +25,58 @@ import KnowledgeManager from "./KnowledgeManager";
 
 // --- Custom Nodes ---
 
-const AgentNode = ({ data }: { data: { label: string, onClick: () => void, isSelected?: boolean } }) => (
-    <div
+const AgentNode = ({ data }: { data: { label: string, onClick: () => void, isSelected?: boolean, isThinking?: boolean } }) => (
+    <motion.div
         onClick={data.onClick}
-        className={`w-64 bg-white dark:bg-slate-900 border-2 rounded-2xl p-4 shadow-sm transition-all cursor-pointer hover:shadow-md ${data.isSelected
-                ? "border-indigo-500 shadow-indigo-500/20"
-                : "border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700"
+        animate={data.isThinking ? {
+            boxShadow: ["0px 0px 0px rgba(0,0,0,0)", "0px 0px 15px rgba(0,0,0,0.2)", "0px 0px 0px rgba(0,0,0,0)"],
+            borderColor: ["#e2e8f0", "#94a3b8", "#e2e8f0"]
+        } : {}}
+        transition={data.isThinking ? { duration: 2, repeat: Infinity } : {}}
+        className={`w-64 bg-white dark:bg-black border-2 rounded-2xl p-4 shadow-sm transition-all cursor-pointer hover:shadow-md outline-none ring-0 ${data.isSelected
+            ? "border-black dark:border-white shadow-lg"
+            : "border-slate-200 dark:border-slate-800 hover:border-black dark:hover:border-white"
             }`}
     >
-        <Handle type="target" position={Position.Top} className="w-3 h-3 bg-indigo-500" />
+        <Handle type="target" position={Position.Top} className="w-3 h-3 bg-black dark:bg-white border-none" />
         <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
-                <User size={20} className="text-indigo-600 dark:text-indigo-400" />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${data.isThinking ? "bg-black text-white dark:bg-white dark:text-black" : "bg-slate-50 dark:bg-slate-900"}`}>
+                <User size={20} />
             </div>
             <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{data.label}</h4>
+                <h4 className="text-sm font-bold text-black dark:text-white truncate">{data.label}</h4>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">Autonomous Agent</p>
+                {data.isThinking && (
+                    <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-[10px] font-bold text-black dark:text-white mt-1 block tracking-tighter"
+                    >
+                        THINKING...
+                    </motion.span>
+                )}
             </div>
         </div>
-        <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-indigo-500" />
-    </div>
+        <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-black dark:bg-white border-none" />
+    </motion.div>
 );
 
-const ToolNode = ({ data }: { data: { label: string, provider: string } }) => (
-    <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-full px-4 py-2 flex items-center gap-3 shadow-sm min-w-32">
+const ToolNode = ({ data }: { data: { label: string, provider: string, isActive?: boolean } }) => (
+    <motion.div
+        animate={data.isActive ? { scale: [1, 1.05, 1] } : {}}
+        transition={{ duration: 0.5, repeat: data.isActive ? Infinity : 0 }}
+        className={`bg-white dark:bg-black border rounded-full px-4 py-2 flex items-center gap-3 shadow-sm min-w-32 outline-none ring-0 ${data.isActive ? "border-black dark:border-white" : "border-slate-200 dark:border-slate-800"}`}
+    >
         <Handle type="target" position={Position.Top} className="!bg-slate-400" />
-        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center shrink-0">
+        <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center shrink-0">
             <Wrench size={12} className="text-slate-600 dark:text-slate-400" />
         </div>
         <div>
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block whitespace-nowrap">{data.label}</span>
+            <span className="text-xs font-bold text-black dark:text-white block whitespace-nowrap">{data.label}</span>
             <span className="text-[9px] text-slate-500 uppercase tracking-widest">{data.provider}</span>
         </div>
         <Handle type="source" position={Position.Bottom} className="!bg-slate-400" />
-    </div>
+    </motion.div>
 );
 
 const nodeTypes = {
@@ -96,10 +115,21 @@ export default function CrewStudio() {
     const [interventionPrompt, setInterventionPrompt] = useState("");
     const [interventionInput, setInterventionInput] = useState("");
 
+    // ── HITL Approval State ──────────────────────────────────────
+    const [isApprovalOpen, setIsApprovalOpen] = useState(false);
+    const [approvalToolName, setApprovalToolName] = useState("");
+    const [approvalArguments, setApprovalArguments] = useState<any>(null);
+    const [approvalExecutionId, setApprovalExecutionId] = useState("");
+
     // ── React Flow State ─────────────────────────────────────────
     const [nodes, setNodes] = useState<Node[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    // ── Visual Trace Sync ──────────────────────────────────────
+    const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
+    const [activeToolId, setActiveToolId] = useState<string | null>(null);
+    const [activeEdgeId, setActiveEdgeId] = useState<string | null>(null);
 
     // Initial setup if empty
     useEffect(() => {
@@ -131,6 +161,7 @@ export default function CrewStudio() {
                 data: {
                     label: agent.role || "Untitled Agent",
                     isSelected: selectedAgentId === agent.id,
+                    isThinking: activeAgentId === agent.id,
                     onClick: () => {
                         setSelectedAgentId(agent.id);
                         setIsDrawerOpen(true);
@@ -138,14 +169,19 @@ export default function CrewStudio() {
                 },
             });
 
-            // If not first agent, connect to previous
+            // If not first agent, connect to previous (delegation path)
             if (index > 0) {
+                const edgeId = `edge-${agentConfig[index - 1].id}-${agent.id}`;
                 newEdges.push({
-                    id: `edge-${agentConfig[index - 1].id}-${agent.id}`,
+                    id: edgeId,
                     source: `agent-${agentConfig[index - 1].id}`,
                     target: nodeId,
-                    animated: true,
-                    style: { stroke: '#818cf8', strokeWidth: 2 }
+                    type: 'smoothstep',
+                    animated: activeEdgeId === edgeId,
+                    style: {
+                        stroke: activeEdgeId === edgeId ? '#000' : '#e2e8f0',
+                        strokeWidth: activeEdgeId === edgeId ? 3 : 2
+                    }
                 });
             }
 
@@ -153,19 +189,30 @@ export default function CrewStudio() {
             if (agent.tools && agent.tools.length > 0) {
                 agent.tools.forEach((tool, tIdx) => {
                     const toolNodeId = `tool-${agent.id}-${tool}`;
+                    const toolActive = activeToolId === toolNodeId;
+                    const toolEdgeId = `edge-${nodeId}-${toolNodeId}`;
                     newNodes.push({
                         id: toolNodeId,
                         type: 'tool',
                         position: { x: 600, y: yOffset + (tIdx * 80) },
-                        data: { label: tool, provider: "integration" }
+                        data: {
+                            label: tool,
+                            provider: "integration",
+                            isActive: toolActive
+                        }
                     });
 
                     newEdges.push({
-                        id: `edge-${nodeId}-${toolNodeId}`,
+                        id: toolEdgeId,
                         source: nodeId,
                         target: toolNodeId,
-                        animated: true,
-                        style: { stroke: '#475569', strokeWidth: 1.5, strokeDasharray: '4 4' }
+                        type: 'smoothstep',
+                        animated: toolActive || activeEdgeId === toolEdgeId,
+                        style: {
+                            stroke: (toolActive || activeEdgeId === toolEdgeId) ? '#000' : '#94a3b8',
+                            strokeWidth: (toolActive || activeEdgeId === toolEdgeId) ? 2 : 1.5,
+                            strokeDasharray: '4 4'
+                        }
                     });
                 });
             }
@@ -175,7 +222,7 @@ export default function CrewStudio() {
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [agentConfig, selectedAgentId, setSelectedAgentId]);
+    }, [agentConfig, selectedAgentId, activeAgentId, activeToolId, activeEdgeId]);
 
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
@@ -215,39 +262,78 @@ export default function CrewStudio() {
         setTerminalError(null);
         setTerminalChunks([]);
 
-        const eventSource = new EventSource(`http://localhost:8000/stream/${toolTaskId}`);
+        // USE THE NEW TRACES SSE ENDPOINT
+        const eventSource = new EventSource(`http://localhost:8000/api/traces/stream/${toolTaskId}`);
 
         eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
 
-                switch (data.event || data.type || data.status) {
+                switch (data.type || data.status) {
+                    case "thought":
+                        // Activate the agent "Thinking" state
+                        // For now we use the first agent as default if no specific ID in trace
+                        setActiveAgentId(agentConfig[0]?.id || null);
+                        setTerminalChunks(prev => [...prev, data.content]);
+
+                        // Clear active states after a delay if no new events
+                        setTimeout(() => {
+                            setActiveAgentId(null);
+                            setActiveToolId(null);
+                            setActiveEdgeId(null);
+                        }, 3000);
+                        break;
+                    case "tool":
+                        // Activate tool node and edge
+                        const toolNodeId = `tool-${agentConfig[0]?.id}-${data.name}`;
+                        setActiveToolId(toolNodeId);
+                        setActiveEdgeId(`edge-agent-${agentConfig[0]?.id}-${toolNodeId}`);
+                        setTerminalChunks(prev => [...prev, `Using tool: ${data.name} with input: ${data.input}`]);
+
+                        setTimeout(() => {
+                            setActiveToolId(null);
+                            setActiveEdgeId(null);
+                        }, 3000);
+                        break;
                     case "status":
-                        const stateMsg = data.data?.state || data.data || data.content || "Processing...";
+                        const stateMsg = data.content || "Processing...";
                         if (stateMsg === "__INTERVENTION_REQUIRED__") {
                             setIsInterventionRequired(true);
-                            setInterventionPrompt(data.data?.prompt || "Human intervention required to proceed.");
+                            setInterventionPrompt(data.prompt || "Human intervention required to proceed.");
                         } else {
                             setToolExecutionState(stateMsg);
                         }
                         break;
                     case "chunk":
-                        setTerminalChunks(prev => [...prev, data.data || data.content]);
+                        setTerminalChunks(prev => [...prev, data.content]);
+                        break;
+                    case "approval_required":
+                        setApprovalToolName(data.tool_name);
+                        setApprovalArguments(data.arguments);
+                        setApprovalExecutionId(data.execution_id || toolTaskId);
+                        setIsApprovalOpen(true);
+                        setToolExecutionState("Waiting for Approval...");
                         break;
                     case "completed":
                         setToolExecutionState("Completed!");
+                        setActiveAgentId(null);
+                        setActiveToolId(null);
+                        setActiveEdgeId(null);
                         resetTimeoutRef.current = setTimeout(handleReset, 4000);
                         eventSource.close();
                         break;
                     case "error":
-                        setTerminalError(data.message || "Execution failed");
+                        setTerminalError(data.content || "Execution failed");
                         setToolExecutionState("Failed");
+                        setActiveAgentId(null);
+                        setActiveToolId(null);
+                        setActiveEdgeId(null);
                         resetTimeoutRef.current = setTimeout(handleReset, 5000);
                         eventSource.close();
                         break;
                 }
             } catch (err) {
-                setTerminalChunks(prev => [...prev, event.data]);
+                console.error("SSE Parse Error", err);
             }
         };
 
@@ -258,7 +344,37 @@ export default function CrewStudio() {
         return () => {
             eventSource.close();
         };
-    }, [isToolExecuting, toolTaskId, setToolExecutionState, handleReset]);
+    }, [isToolExecuting, toolTaskId, setToolExecutionState, handleReset, agentConfig]);
+
+    const handleApprove = async () => {
+        if (!approvalExecutionId) return;
+        try {
+            await fetch("http://localhost:8000/api/approval/confirm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ execution_id: approvalExecutionId })
+            });
+            setIsApprovalOpen(false);
+            setToolExecutionState("Approval granted. Resuming...");
+        } catch (err) {
+            console.error("Failed to approve", err);
+        }
+    };
+
+    const handleDeny = async () => {
+        if (!approvalExecutionId) return;
+        try {
+            await fetch("http://localhost:8000/api/approval/deny", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ execution_id: approvalExecutionId })
+            });
+            setIsApprovalOpen(false);
+            setToolExecutionState("Action denied. Halted.");
+        } catch (err) {
+            console.error("Failed to deny", err);
+        }
+    };
 
     const submitIntervention = async () => {
         if (!toolTaskId || !interventionInput.trim()) return;
@@ -278,10 +394,10 @@ export default function CrewStudio() {
     };
 
     useEffect(() => {
-        if (bottomRef.current) {
+        if (bottomRef.current && !isApprovalOpen) {
             bottomRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [terminalChunks, toolExecutionState]);
+    }, [terminalChunks, toolExecutionState, isApprovalOpen]);
 
     const deployCrew = async () => {
         if (isDeploying || isToolExecuting) return;
@@ -458,11 +574,10 @@ export default function CrewStudio() {
                     onEdgesChange={onEdgesChange}
                     nodeTypes={nodeTypes}
                     fitView
-                    className="w-full h-full"
+                    className="w-full h-full outline-none ring-0"
                     onPaneClick={() => setIsDrawerOpen(false)}
                 >
-                    <Background color="#94a3b8" gap={16} size={1} />
-                    <Controls />
+                    <Background color="#000" gap={16} size={0.5} style={{ opacity: 0.1 }} />
                 </ReactFlow>
 
             </div>
@@ -475,13 +590,13 @@ export default function CrewStudio() {
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: "100%", opacity: 0 }}
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="absolute top-4 bottom-4 right-4 w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col z-20"
+                        className="absolute top-4 bottom-4 right-4 w-96 bg-white dark:bg-black rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col z-20"
                     >
-                        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                            <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                <User size={18} className="text-indigo-500" /> Map Properties
+                        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-black">
+                            <h3 className="font-bold text-black dark:text-white flex items-center gap-2">
+                                <User size={18} /> Map Properties
                             </h3>
-                            <button onClick={() => setIsDrawerOpen(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 p-1">
+                            <button onClick={() => setIsDrawerOpen(false)} className="text-slate-400 hover:text-black dark:hover:text-white p-1">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
@@ -492,8 +607,8 @@ export default function CrewStudio() {
                             <div>
                                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Agent Node</h4>
                                 <div className="space-y-4">
-                                    <div className="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 text-xs font-semibold rounded-lg flex items-center gap-2 border border-indigo-100 dark:border-indigo-800/50">
-                                        <Brain size={14} className="text-indigo-600 dark:text-indigo-400" /> Long-Term Memory (Active)
+                                    <div className="px-3 py-2 bg-black text-white dark:bg-white dark:text-black text-xs font-semibold rounded-lg flex items-center gap-2 border border-black dark:border-white">
+                                        <Brain size={14} /> Long-Term Memory (Active)
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Role</label>
@@ -559,7 +674,7 @@ export default function CrewStudio() {
                                                         className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors
                                                             ${isLocked
                                                                 ? "border-slate-100 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/20 cursor-not-allowed opacity-60"
-                                                                : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700"
+                                                                : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 cursor-pointer hover:border-black dark:hover:border-white"
                                                             }
                                                         `}
                                                     >
@@ -576,13 +691,13 @@ export default function CrewStudio() {
                                                                         : [...tools, tool.id],
                                                                 });
                                                             }}
-                                                            className={`w-4 h-4 rounded focus:ring-indigo-500 border-slate-300 dark:border-slate-600 outline-none ring-0
-                                                                ${isLocked ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-indigo-500"}
+                                                            className={`w-4 h-4 rounded focus:ring-black border-slate-300 dark:border-slate-600 outline-none ring-0
+                                                                ${isLocked ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-black dark:text-white"}
                                                             `}
                                                         />
                                                         <div className="flex items-center gap-2">
-                                                            <Wrench size={14} className={isLocked ? "text-slate-400" : "text-slate-600 dark:text-slate-400"} />
-                                                            <span className={`text-sm font-medium ${isLocked ? "text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-300"}`}>
+                                                            <Wrench size={14} className={isLocked ? "text-slate-400" : "text-black dark:text-white"} />
+                                                            <span className={`text-sm font-medium ${isLocked ? "text-slate-400 dark:text-slate-500" : "text-black dark:text-white"}`}>
                                                                 {tool.name}
                                                             </span>
                                                             {isLocked && (
@@ -631,9 +746,9 @@ export default function CrewStudio() {
                                                 id="structured-toggle"
                                                 checked={currentTask.is_structured}
                                                 onChange={(e) => updateTask({ is_structured: e.target.checked })}
-                                                className="w-4 h-4 text-indigo-500 rounded outline-none ring-0 focus:ring-indigo-500 border-slate-300"
+                                                className="w-4 h-4 text-black bg-white dark:bg-black border-slate-300 rounded outline-none ring-0 focus:ring-black"
                                             />
-                                            <label htmlFor="structured-toggle" className="text-sm text-slate-700 dark:text-slate-300 font-medium select-none">
+                                            <label htmlFor="structured-toggle" className="text-sm text-black dark:text-white font-medium select-none">
                                                 Require Structured Output
                                             </label>
                                         </div>
@@ -657,37 +772,37 @@ export default function CrewStudio() {
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
                         className="absolute bottom-0 left-0 right-0 h-80 z-40 p-4 pointer-events-none" // pointer-events-none so we can click around it, but inner div will have pointer-events-auto
                     >
-                        <div className="max-w-4xl mx-auto h-full rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.2)] bg-slate-900/80 backdrop-blur-md border border-slate-700/50 flex flex-col overflow-hidden pointer-events-auto">
+                        <div className="max-w-4xl mx-auto h-full rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.2)] bg-white dark:bg-black border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden pointer-events-auto">
 
                             {/* Terminal Header */}
-                            <div className="px-4 py-2 border-b border-slate-700/50 flex items-center justify-between bg-black/20">
+                            <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-black">
                                 <div className="flex items-center gap-3">
-                                    <span className="flex gap-1.5">
-                                        <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-                                        <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
-                                        <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+                                    <span className="flex gap-1.5 grayscale">
+                                        <div className="w-3 h-3 rounded-full bg-slate-300"></div>
+                                        <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                                        <div className="w-3 h-3 rounded-full bg-slate-500"></div>
                                     </span>
-                                    <span className="text-xs font-mono text-emerald-400 font-medium">
+                                    <span className="text-xs font-mono text-black dark:text-white font-medium">
                                         {toolExecutionState || "Listening for events..."}
                                     </span>
                                 </div>
-                                <button onClick={handleReset} className="text-slate-400 hover:text-white text-xs font-semibold px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 transition">
+                                <button onClick={handleReset} className="text-slate-500 hover:text-black dark:hover:text-white text-xs font-semibold px-2 py-1 rounded border border-slate-200 dark:border-slate-800 transition">
                                     Close
                                 </button>
                             </div>
 
                             {/* Terminal Log */}
-                            <div className="flex-1 p-4 overflow-y-auto font-mono text-sm space-y-2 scrollbar-thin scrollbar-thumb-slate-600">
+                            <div className={`flex-1 p-4 overflow-y-auto font-mono text-sm space-y-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 transition-all duration-300 ${isApprovalOpen ? "grayscale-[0.5] blur-sm pointer-events-none" : ""}`}>
                                 <AnimatePresence initial={false}>
                                     {terminalChunks.map((chunk, i) => (
-                                        <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="text-slate-300 break-words flex gap-3">
-                                            <span className="text-indigo-400 shrink-0">❯</span>
+                                        <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="text-black dark:text-white break-words flex gap-3">
+                                            <span className="text-slate-400 shrink-0">❯</span>
                                             <span>{chunk}</span>
                                         </motion.div>
                                     ))}
                                     {terminalError && (
-                                        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="text-red-400 break-words italic">
-                                            ✖ {terminalError}
+                                        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="text-black dark:text-white font-bold break-words underline decoration-red-500/50">
+                                            ERROR: {terminalError}
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
@@ -705,21 +820,19 @@ export default function CrewStudio() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+                        className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-white/20 dark:bg-black/20 backdrop-blur-sm"
                     >
                         <motion.div
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 max-w-lg w-full"
+                            className="bg-white dark:bg-black border border-black dark:border-white rounded-2xl shadow-2xl p-6 max-w-lg w-full"
                         >
-                            <div className="flex items-center gap-3 mb-4 text-amber-500">
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Human Intervention Required</h3>
+                            <div className="flex items-center gap-3 mb-4 text-black dark:text-white">
+                                <Repeat size={24} />
+                                <h3 className="text-lg font-bold">Human Intervention Required</h3>
                             </div>
-                            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 bg-slate-50 dark:bg-slate-950/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                            <p className="text-sm text-black dark:text-white mb-4 bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
                                 {interventionPrompt}
                             </p>
                             <textarea
@@ -727,22 +840,32 @@ export default function CrewStudio() {
                                 onChange={(e) => setInterventionInput(e.target.value)}
                                 placeholder="Enter your instructions or guidance..."
                                 rows={4}
-                                className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white resize-none mb-4"
+                                className="w-full bg-white dark:bg-black border border-black dark:border-white rounded-xl px-4 py-3 text-sm focus:outline-none ring-0 dark:text-white resize-none mb-4"
                                 autoFocus
                             />
                             <div className="flex justify-end gap-3">
                                 <button
                                     onClick={submitIntervention}
                                     disabled={!interventionInput.trim()}
-                                    className="px-5 py-2 rounded-lg font-semibold text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+                                    className="px-5 py-2 rounded-lg font-semibold text-white bg-black dark:bg-white dark:text-black disabled:opacity-50 transition-colors flex items-center gap-2"
                                 >
-                                    Submit Feedback
+                                    <ArrowRightLeft size={16} /> Submit Feedback
                                 </button>
                             </div>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* ── HITL Approval Overlay ── */}
+            <ApprovalOverlay
+                isOpen={isApprovalOpen}
+                executionId={approvalExecutionId}
+                toolName={approvalToolName}
+                arguments={approvalArguments}
+                onApprove={handleApprove}
+                onDeny={handleDeny}
+            />
 
         </div>
     );

@@ -27,6 +27,7 @@ import ToolsIntegrations from "@/components/autonomous/ToolsIntegrations";
 import Traces from "@/components/autonomous/Traces";
 import Automations from "@/components/autonomous/Automations";
 import EnvVariables from "@/components/autonomous/EnvVariables";
+import Settings from "@/components/autonomous/Settings";
 import { UsagePage } from "@/components/autonomous/Usage";
 import {
     AutomationsPage as AutomationsPlaceholder,
@@ -201,15 +202,17 @@ export default function WorkspacePage() {
             case "agents-repository":
                 return <CrewStudio />;
             case "llm-connections":
-                return <LLMConnections />;
+            case "environment-variables":
+            case "settings":
+                return <Settings />;
             case "automations":
                 return <Automations />;
             case "tools-integrations":
                 return <ToolsIntegrations />;
             case "traces":
                 return <Traces />;
-            case "environment-variables":
-                return <EnvVariables />;
+            case "usage":
+                return <UsagePage />;
             case "crew-studio":
             default:
                 return renderCrewStudio();

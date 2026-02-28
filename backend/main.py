@@ -23,10 +23,22 @@ app.include_router(traces_router)
 from routers.automations import router as automations_router
 app.include_router(automations_router)
 
+# Register Vault Router
+from routers.vault import router as vault_router
+app.include_router(vault_router)
+
+# Register Config Router
+from routers.config import router as config_router
+app.include_router(config_router)
+
+# Register Workspace Router
+from routers.workspace import router as workspace_router
+app.include_router(workspace_router)
+
 # Allow Next.js frontend to talk to FastAPI
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"], # In production, replace with specific Vercel/Next.js origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -113,8 +125,8 @@ async def schedule_flow_endpoint(req: Request):
     try:
         new_sch = ScheduledFlow(
             id=str(uuid.uuid4()),
-            cron_expression=interval,
-            payload_json=json.dumps(arguments)
+            cron_schedule=interval,
+            payload=json.dumps(arguments)
         )
         db.add(new_sch)
         db.commit()
@@ -122,6 +134,53 @@ async def schedule_flow_endpoint(req: Request):
         db.close()
         
     return {"status": "success", "message": f"Successfully scheduled flow for '{interval}'"}
+
+@app.get("/api/traces/stream/{execution_id}")
+async def stream_traces(request: Request, execution_id: str):
+    """
+    SSE Endpoint for real-time Agent Traces.
+    This reads from the Redis list `stream:{execution_id}`.
+    """
+    stream_channel = f"stream:{execution_id}"
+
+    async def event_generator():
+        keep_alive_count = 0
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                
+                # Use a shorter timeout or non-blocking check
+                result = await async_redis_client.blpop(stream_channel, timeout=1) 
+                
+                if result:
+                    keep_alive_count = 0
+                    _, event_bytes = result
+                    event_data = event_bytes.decode('utf-8')
+                    
+                    if event_data == "__DONE__":
+                        yield {"data": json.dumps({"type": "status", "content": "Execution finished"})}
+                        break
+                    if event_data.startswith("__ERROR__"):
+                        yield {"data": json.dumps({"type": "error", "content": event_data[9:]})}
+                        break
+                    
+                    yield {"data": event_data}
+                else:
+                    keep_alive_count += 1
+                    if keep_alive_count >= 30:
+                        yield {"data": json.dumps({"type": "status", "content": "waiting_for_user"})}
+                        keep_alive_count = 0
+                    # Small sleep to prevent tight loop if blpop returns quickly
+                    await asyncio.sleep(0.01)
+
+        except asyncio.CancelledError:
+            # Handle task cancellation (e.g. server shutdown or client disconnect during yield)
+            pass
+        finally:
+            await async_redis_client.expire(stream_channel, 60)
+
+    return EventSourceResponse(event_generator())
 
 
 @app.get("/stream/{task_id}")
@@ -183,3 +242,114 @@ async def resume_execution(req: ResumeRequest):
     await async_redis_client.expire(f"feedback:{req.task_id}", 3600)
     
     return {"status": "ok", "message": "Feedback submitted to flow"}
+@app.get("/api/analytics/usage")
+async def get_usage_analytics():
+    """
+    Returns aggregated LLM usage data, cost tracking, and summary stats for the dashboard.
+    """
+    from db_config import SessionLocal, UsageLog, AgentTrace, LLMConnection
+    from sqlalchemy import func
+    from datetime import datetime, timedelta
+    
+    db = SessionLocal()
+    try:
+        # 1. Summary Stats
+        total_cost = db.query(func.sum(UsageLog.total_cost)).scalar() or 0
+        total_agents = db.query(func.count(LLMConnection.id)).scalar() or 0 # Fallback: could also count distinct model names
+        # Better: use a distinct count if LLMConnection isn't just about agents
+        
+        # 2. Success vs Failed
+        success_count = db.query(func.count(UsageLog.id)).filter(UsageLog.status == "success").scalar() or 0
+        failed_count = db.query(func.count(UsageLog.id)).filter(UsageLog.status == "failed").scalar() or 0
+        total_runs = success_count + failed_count
+        success_rate = (success_count / total_runs * 100) if total_runs > 0 else 0
+        
+        # 3. Daily Token Spend (last 7 days)
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        daily_stats = db.query(
+            func.date(UsageLog.timestamp).label('day'),
+            func.sum(UsageLog.prompt_tokens).label('prompt'),
+            func.sum(UsageLog.completion_tokens).label('completion')
+        ).filter(UsageLog.timestamp >= seven_days_ago)\
+         .group_by(func.date(UsageLog.timestamp))\
+         .order_by(func.date(UsageLog.timestamp)).all()
+         
+        token_chart = []
+        for d in daily_stats:
+            token_chart.append({
+                "date": d.day,
+                "tokens": int(float(d.prompt or 0)) + int(float(d.completion or 0))
+            })
+
+        # 4. Task Throughput (placeholder or actual trace count)
+        task_throughput = db.query(
+            func.date(AgentTrace.timestamp).label('day'),
+            func.count(AgentTrace.id).label('count')
+        ).filter(AgentTrace.timestamp >= seven_days_ago)\
+         .group_by(func.date(AgentTrace.timestamp))\
+         .order_by(func.date(AgentTrace.timestamp)).all()
+         
+        task_chart = [{"date": t.day, "tasks": t.count} for t in task_throughput]
+
+        return {
+            "summary": {
+                "total_cost": round(float(total_cost), 4),
+                "total_agents": total_agents,
+                "total_tools": 8, # Placeholder for tools catalog size
+                "success_rate": round(success_rate, 1),
+                "total_runs": total_runs
+            },
+            "token_chart": token_chart,
+            "task_chart": task_chart
+        }
+    finally:
+        db.close()
+
+class ApprovalResponse(BaseModel):
+    execution_id: str
+
+@app.post("/api/approval/confirm")
+async def confirm_approval(req: ApprovalResponse):
+    """Resumes the sensitive tool execution by pushing an 'approved' signal to Redis."""
+    from db_config import SessionLocal, AgentApproval
+    db = SessionLocal()
+    try:
+        approval = db.query(AgentApproval).filter(
+            AgentApproval.execution_id == req.execution_id,
+            AgentApproval.status == "pending"
+        ).order_by(AgentApproval.timestamp.desc()).first()
+        
+        if approval:
+            approval.status = "approved"
+            db.commit()
+            
+            # Resume signal
+            await async_redis_client.rpush(f"approval_response:{req.execution_id}", "approved")
+            return {"status": "ok", "message": "Execution approved and resumed"}
+    finally:
+        db.close()
+    
+    raise HTTPException(status_code=404, detail="Pending approval not found")
+
+@app.post("/api/approval/deny")
+async def deny_approval(req: ApprovalResponse):
+    """Stops the sensitive tool execution by pushing a 'denied' signal to Redis."""
+    from db_config import SessionLocal, AgentApproval
+    db = SessionLocal()
+    try:
+        approval = db.query(AgentApproval).filter(
+            AgentApproval.execution_id == req.execution_id,
+            AgentApproval.status == "pending"
+        ).order_by(AgentApproval.timestamp.desc()).first()
+        
+        if approval:
+            approval.status = "denied"
+            db.commit()
+            
+            # Deny signal
+            await async_redis_client.rpush(f"approval_response:{req.execution_id}", "denied")
+            return {"status": "ok", "message": "Execution denied and halted"}
+    finally:
+        db.close()
+        
+    raise HTTPException(status_code=404, detail="Pending approval not found")

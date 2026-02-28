@@ -144,6 +144,7 @@ export default function AppSidebar() {
     const setActiveAmpRoute = useUIStore((s) => s.setActiveAmpRoute);
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
+    const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
 
     // ── Crew Config from store (merged from AgentDashboard left panel) ──
     const agentConfig = useUIStore((s) => s.agentConfig);
@@ -156,7 +157,12 @@ export default function AppSidebar() {
     const setSelectedTaskId = useUIStore((s) => s.setSelectedTaskId);
     const activeProviders = useUIStore((s) => s.activeProviders);
 
-    useEffect(() => setMounted(true), []);
+    useEffect(() => {
+        setMounted(true);
+        fetch("http://localhost:8000/api/workspace/info")
+            .then(res => { if (res.ok) setIsWorkspaceReady(true); })
+            .catch(err => console.error("Workspace init failed:", err));
+    }, []);
 
     // Show crew config section when on agents-repository route
     const showCrewConfig = activeAmpRoute === "agents-repository";
@@ -201,11 +207,15 @@ export default function AppSidebar() {
                         <div className="space-y-0.5">
                             {section.items.map((item) => {
                                 const isActive = activeAmpRoute === item.id;
+                                const isSoon = item.label.includes("(Soon)");
+                                const showSoonLabel = isSoon && !isWorkspaceReady;
+                                const displayLabel = showSoonLabel ? item.label : item.label.replace(" (Soon)", "");
+
                                 return (
                                     <button
                                         key={item.id}
                                         onClick={() => {
-                                            if (!item.label.includes("(Soon)")) setActiveAmpRoute(item.id);
+                                            if (!showSoonLabel) setActiveAmpRoute(item.id);
                                         }}
                                         className={`
                                             w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150
@@ -218,8 +228,8 @@ export default function AppSidebar() {
                                         <span className={isActive ? "text-white dark:text-slate-900" : "text-slate-500 dark:text-slate-400"}>
                                             {item.icon}
                                         </span>
-                                        {item.label.replace(" (Soon)", "")}
-                                        {item.label.includes("(Soon)") && (
+                                        {displayLabel.replace(" (Soon)", "")}
+                                        {showSoonLabel && (
                                             <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded ml-2 text-slate-500 dark:text-slate-400">Soon</span>
                                         )}
                                     </button>

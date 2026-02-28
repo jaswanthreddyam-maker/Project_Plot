@@ -77,55 +77,34 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
                 flow.state.knowledge_sources = knowledge_sources
 
                 # ── Dynamic API Key Injection ─────────────────────────
-                # Fetch API keys from LLMConnections table for each agent's provider
-                import base64
-                from db_config import SessionLocal, LLMConnection, IntegrationToken, EnvVariable
+                # ── Dynamic API Key Injection ─────────────────────────
+                from cryptography.fernet import Fernet
+                from db_config import SessionLocal, VaultKey
 
                 db_session = SessionLocal()
                 try:
-                    # ── Global Environment Variables ────────────────────
-                    global_envs = db_session.query(EnvVariable).all()
-                    for e in global_envs:
-                        try:
-                            decoded_val = base64.b64decode(e.value_encrypted).decode("utf-8")
-                            os.environ[e.key] = decoded_val
-                        except Exception:
-                            pass
-                    PROVIDER_ENV_MAP = {
-                        "openai": "OPENAI_API_KEY",
-                        "anthropic": "ANTHROPIC_API_KEY",
-                        "gemini": "GEMINI_API_KEY",
-                        "google": "GEMINI_API_KEY",
-                        "groq": "GROQ_API_KEY",
-                        "ollama": "OLLAMA_HOST",
-                    }
-                    agents_list = arguments.get("agents", [])
-                    injected_providers = set()
-                    for agent_cfg in agents_list:
-                        provider_name = agent_cfg.get("provider", "").lower().strip()
-                        if provider_name and provider_name not in injected_providers:
-                            conn = db_session.query(LLMConnection).filter_by(
-                                provider=provider_name
-                            ).order_by(LLMConnection.created_at.desc()).first()
-                            if conn:
-                                decoded_key = base64.b64decode(conn.api_key_encrypted).decode("utf-8")
-                                env_var = PROVIDER_ENV_MAP.get(provider_name, f"{provider_name.upper()}_API_KEY")
-                                os.environ[env_var] = decoded_key
-                                injected_providers.add(provider_name)
+                    master_key = os.environ.get("VAULT_MASTER_KEY")
+                    if master_key:
+                        fernet = Fernet(master_key.encode())
+                        # Only put SEARCH and DEV keys into os.environ for tools (CrewAI tools rely on env vars)
+                        # LLM keys are safely injected straight into the LLM constructor in autonomous_flow.py
+                        vault_keys = db_session.query(VaultKey).filter(VaultKey.category.in_(["SEARCH", "DEV"])).all()
+                        for vk in vault_keys:
+                            try:
+                                decoded_val = fernet.decrypt(vk.encrypted_value.encode()).decode("utf-8")
+                                os.environ[vk.key_name] = decoded_val
+                            except Exception:
+                                pass
                 finally:
                     db_session.close()
                 
                 # ── Dynamic Tool Injection ────────────────────────────
-                # Helper to fetch and decrypt integration tokens
+                # Helper to fetch integration tokens natively mapped from Vault
                 def get_integration_token(provider_name):
-                    try:
-                        token_record = db_session.query(IntegrationToken).filter(IntegrationToken.provider == provider_name).first()
-                        if token_record:
-                            # Basic base64 decode for development
-                            return base64.b64decode(token_record.token_encrypted.encode()).decode()
-                        return None
-                    except Exception:
-                        return None
+                    if provider_name == "github": return os.environ.get("GITHUB_TOKEN")
+                    if provider_name == "asana": return os.environ.get("ASANA_ACCESS_TOKEN")
+                    if provider_name == "jira": return os.environ.get("JIRA_API_TOKEN")
+                    return None
 
                 # Read each agent's tools list and instantiate CrewAI tool objects
                 try:
@@ -242,15 +221,15 @@ def poll_schedules(self):
         for f in flows:
             trigger = False
             # Very simple cron simulation for exact match string parsing
-            if f.cron_expression == "Every 1 Minute":
+            if f.cron_schedule == "Every 1 Minute":
                 trigger = True
-            elif f.cron_expression == "Every Hour" and now.minute == 0:
+            elif f.cron_schedule == "Every Hour" and now.minute == 0:
                 trigger = True
-            elif f.cron_expression == "Daily at 9 AM" and now.hour == 9 and now.minute == 0:
+            elif f.cron_schedule == "Daily at 9 AM" and now.hour == 9 and now.minute == 0:
                 trigger = True
                 
             if trigger:
-                payload = json.loads(f.payload_json)
+                payload = json.loads(f.payload)
                 scheduled_flow_kickoff.delay(payload)
                 
     finally:

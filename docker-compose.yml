@@ -17,6 +17,7 @@ services:
       - ./backend:/app
       - lancedb_data:/app/.crewai/memory
       - sqlite_data:/app/db
+      - chroma_data:/app/chroma_db
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -33,6 +34,24 @@ services:
       - ./backend:/app
       - lancedb_data:/app/.crewai/memory
       - sqlite_data:/app/db
+      - chroma_data:/app/chroma_db
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A worker.celery_app beat --loglevel=info
+    volumes:
+      - ./backend:/app
+      - lancedb_data:/app/.crewai/memory
+      - sqlite_data:/app/db
+      - chroma_data:/app/chroma_db
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -43,3 +62,4 @@ services:
 volumes:
   lancedb_data:
   sqlite_data:
+  chroma_data:

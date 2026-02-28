@@ -9,3 +9,6 @@ sse-starlette==2.2.1
 gevent==24.11.1
 SQLAlchemy==2.0.37
 python-dotenv==1.0.1
+chromadb==0.6.3
+pysqlite3-binary==0.5.4.post1
+cryptography==42.0.5
