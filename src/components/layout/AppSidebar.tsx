@@ -106,7 +106,7 @@ const NAV_SECTIONS: NavSection[] = [
         items: [
             {
                 id: "usage",
-                label: "Usage",
+                label: "Usage (Soon)",
                 icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="20" x2="18" y2="10" />
@@ -117,7 +117,7 @@ const NAV_SECTIONS: NavSection[] = [
             },
             {
                 id: "billing",
-                label: "Billing",
+                label: "Billing (Soon)",
                 icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
@@ -127,7 +127,7 @@ const NAV_SECTIONS: NavSection[] = [
             },
             {
                 id: "settings",
-                label: "Settings",
+                label: "Settings (Soon)",
                 icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="3" />
@@ -205,7 +205,7 @@ export default function AppSidebar() {
                                     <button
                                         key={item.id}
                                         onClick={() => {
-                                            setActiveAmpRoute(item.id);
+                                            if (!item.label.includes("(Soon)")) setActiveAmpRoute(item.id);
                                         }}
                                         className={`
                                             w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150
@@ -218,7 +218,10 @@ export default function AppSidebar() {
                                         <span className={isActive ? "text-white dark:text-slate-900" : "text-slate-500 dark:text-slate-400"}>
                                             {item.icon}
                                         </span>
-                                        {item.label}
+                                        {item.label.replace(" (Soon)", "")}
+                                        {item.label.includes("(Soon)") && (
+                                            <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded ml-2 text-slate-500 dark:text-slate-400">Soon</span>
+                                        )}
                                     </button>
                                 );
                             })}

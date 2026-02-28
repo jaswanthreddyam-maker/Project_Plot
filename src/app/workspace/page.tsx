@@ -208,12 +208,6 @@ export default function WorkspacePage() {
                 return <Traces />;
             case "environment-variables":
                 return <EnvVariables />;
-            case "usage":
-                return <UsagePage />;
-            case "billing":
-                return <BillingPage />;
-            case "settings":
-                return <SettingsPage />;
             case "crew-studio":
             default:
                 return renderCrewStudio();
