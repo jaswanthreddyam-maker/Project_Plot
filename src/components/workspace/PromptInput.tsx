@@ -548,6 +548,7 @@ export default function PromptInput() {
                     suppressHydrationWarning
                     onClick={handleSend}
                     disabled={sending || !input.trim() || activeProviders.length === 0}
+                    title={sending ? "Generating response..." : (!input.trim() ? "Type a message to send" : (activeProviders.length === 0 ? "Select a provider to send a message" : ""))}
                     className="px-5 py-2.5 bg-gray-700 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-gray-600 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                     {sending ? "..." : "Send"}
