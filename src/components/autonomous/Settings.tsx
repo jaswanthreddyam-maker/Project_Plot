@@ -86,6 +86,17 @@ export default function Settings() {
     const fetchSettingsData = async () => {
         setIsLoading(true);
         try {
+            // Check server health first
+            try {
+                const healthRes = await fetchWithTimeout(`${API_BASE}/api/health`, { timeout: 3000 });
+                if (!healthRes.ok) throw new Error("Health check failed");
+            } catch (err) {
+                console.error("Health check error:", err);
+                setToast({ message: "Server Offline: Make sure your backend (uvicorn) is running.", type: "error" });
+                setIsLoading(false);
+                return;
+            }
+
             const [keysRes, configRes, workspaceRes] = await Promise.all([
                 fetchWithTimeout(`${API_BASE}/api/vault/list`),
                 fetchWithTimeout(`${API_BASE}/api/config`),
@@ -184,8 +195,12 @@ export default function Settings() {
         if (val.includes("••••••••")) return; // Don't save if unchanged masked
 
         setSavingKeys(prev => ({ ...prev, [keyName]: true }));
+        const url = `${API_BASE}/api/vault/save`;
+        const payload = { key_name: keyName, value: val, category };
+        console.log(`[Save Key] Sending request to: ${url}`, payload);
+
         try {
-            const res = await fetchWithTimeout(`${API_BASE}/api/vault/save`, {
+            const res = await fetchWithTimeout(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key_name: keyName, value: val, category })

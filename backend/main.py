@@ -11,6 +11,10 @@ from worker import celery_app
 
 app = FastAPI(title="Plot Autonomous AI Orchestrator")
 
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "message": "Backend is running and reachable"}
+
 # Register Settings Router
 from routers.settings import settings_router
 app.include_router(settings_router)

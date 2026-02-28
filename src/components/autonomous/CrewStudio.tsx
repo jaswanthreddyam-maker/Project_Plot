@@ -440,6 +440,8 @@ export default function CrewStudio() {
             }
         };
 
+        console.log(`[Execute Flow] Sending request to: ${API_BASE}/api/tools/execute`, payload);
+
         try {
             const res = await fetch(`${API_BASE}/api/tools/execute`, {
                 method: "POST",
