@@ -327,33 +327,20 @@ export default function WorkspacePage() {
         </>
     );
 
-    /* ═══ Determine mode & header logic ═══ */
-    const isCrewStudio = activeAmpRoute === "crew-studio";
+    /* ═══ Workspace mode & header logic ═══ */
     const activeWorkspace = useUIStore((s) => s.activeWorkspace);
     const setActiveWorkspace = useUIStore((s) => s.setActiveWorkspace);
     const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
     const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
-    const isAutonomous = activeWorkspace === "autonomous";
 
-    return (
-        <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200" suppressHydrationWarning>
-            {/* Header */}
-            <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#262626]">
-                <div className="flex items-center gap-3">
-                    {/* Dynamic left icon: Back button (autonomous) or Hamburger (chat) */}
-                    {isAutonomous ? (
-                        <button
-                            onClick={() => setActiveWorkspace("chat")}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="19" y1="12" x2="5" y2="12" />
-                                <polyline points="12 19 5 12 12 5" />
-                            </svg>
-                            Back to Chat
-                        </button>
-                    ) : (
-                        sidebarCollapsed && (
+    /* ── CHAT MODE ── */
+    if (activeWorkspace === "chat") {
+        return (
+            <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200" suppressHydrationWarning>
+                {/* Chat Header */}
+                <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#262626]">
+                    <div className="flex items-center gap-3">
+                        {sidebarCollapsed && (
                             <button
                                 onClick={() => setSidebarCollapsed(false)}
                                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors mr-2"
@@ -364,14 +351,10 @@ export default function WorkspacePage() {
                                     <line x1="3" y1="18" x2="21" y2="18" />
                                 </svg>
                             </button>
-                        )
-                    )}
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                        {isCrewStudio ? "Crew Studio" : isAutonomous ? "PlotAI Workspace" : "Workspace"}
-                    </h1>
-                </div>
+                        )}
+                        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Crew Studio</h1>
+                    </div>
 
-                {isCrewStudio && (
                     <div className="flex items-center gap-3">
                         <AssistantToggle />
                         <div className="relative flex items-center gap-3">
@@ -387,13 +370,140 @@ export default function WorkspacePage() {
                             </a>
                         )}
                     </div>
-                )}
+                </header>
+
+                {/* Provider Toggle Pills */}
+                <div className="px-6 pb-2 pt-4">
+                    <div className="flex flex-wrap gap-2">
+                        {AVAILABLE_PROVIDERS.map((provider) => {
+                            const isActive = activeProviders.includes(provider.id);
+                            return (
+                                <button
+                                    key={provider.id}
+                                    suppressHydrationWarning
+                                    onClick={() => toggleProvider(provider.id)}
+                                    className={`
+                                        px-4 py-1.5 text-sm rounded-full border transition-all duration-200
+                                        ${isActive
+                                            ? "bg-gray-800 text-white border-gray-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200"
+                                            : "bg-white text-gray-600 border-gray-300 hover:border-gray-400 dark:bg-[#171717] dark:text-gray-400 dark:border-slate-700 dark:hover:border-slate-500"
+                                        }
+                                    `}
+                                >
+                                    {provider.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {disabledProviders.length > 0 && (
+                        <p className="text-sm text-orange-500 mt-2">
+                            Disabled providers: {disabledProviders.map((provider) => provider.id).join(", ")}
+                        </p>
+                    )}
+                </div>
+
+                {/* Chat Content Area — StreamColumns & Response Sets */}
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                    {activeProviders.length === 0 ? (
+                        <div className="flex items-center justify-center h-64">
+                            <p className="text-gray-400 dark:text-gray-500">
+                                No providers selected. Click a provider button above to activate it.
+                            </p>
+                        </div>
+                    ) : responseSets.length === 0 ? (
+                        <div className={`grid ${idleGridClasses} gap-4`}>
+                            {activeProviders.map((provider) => (
+                                <StreamColumn key={provider} provider={provider} emptyMessage="Start a conversation." />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {responseSets.map((responseSet) => {
+                                const visibleProviders = responseSet.providers.filter((provider) =>
+                                    activeProviders.includes(provider as ProviderOption)
+                                );
+                                const setGridClasses = gridClassesForCount(visibleProviders.length);
+
+                                return (
+                                    <section key={responseSet.id} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-[#171717] transition-colors">
+                                        <div className="mb-4 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-gray-700/50 max-w-3xl">
+                                            <p className="text-sm text-gray-700 dark:text-gray-300">{responseSet.prompt}</p>
+                                        </div>
+
+                                        {visibleProviders.length === 0 ? (
+                                            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+                                                <p className="text-sm text-gray-500">
+                                                    All providers for this response set are currently disabled.
+                                                    Re-enable a provider above to show its column.
+                                                </p>
+                                            </div>
+                                        ) : responseSet.mode === "text" ? (
+                                            <div className={`grid ${setGridClasses} gap-4`}>
+                                                {visibleProviders.map((provider) => {
+                                                    const response = responseSet.responses[provider];
+                                                    return (
+                                                        <StreamColumn
+                                                            key={`${responseSet.id}-${provider}`}
+                                                            provider={provider}
+                                                            textOverride={response?.currentText || ""}
+                                                            isStreamingOverride={response?.isStreaming || false}
+                                                            errorOverride={response?.error || null}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className={`grid ${setGridClasses} gap-4`}>
+                                                {visibleProviders.map((provider) => (
+                                                    <ImageProviderCard
+                                                        key={`${responseSet.id}-${provider}`}
+                                                        provider={provider}
+                                                        state={responseSet.images[provider]}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {comparisonMode && responseSet.mode === "text" && (
+                                            <RefereeSummaryBox responseSet={responseSet} />
+                                        )}
+                                    </section>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                <PromptInput />
+                <MentorOverlay />
+                <ToolExecutionStream />
+            </div>
+        );
+    }
+
+    /* ── AUTONOMOUS MODE ── */
+    return (
+        <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200" suppressHydrationWarning>
+            {/* Autonomous Header — Back button */}
+            <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#262626]">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setActiveWorkspace("chat")}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12" />
+                            <polyline points="12 19 5 12 12 5" />
+                        </svg>
+                        Back to Chat
+                    </button>
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">PlotAI Workspace</h1>
+                </div>
             </header>
 
+            {/* Route-based content */}
             {renderRouteContent()}
-
-            {isCrewStudio && <MentorOverlay />}
-            {isCrewStudio && <ToolExecutionStream />}
         </div>
     );
 }

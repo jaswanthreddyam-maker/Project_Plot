@@ -207,7 +207,7 @@ export default function AgentDashboard() {
                         <button
                             onClick={deployCrew}
                             disabled={isDeploying || isToolExecuting}
-                            className="px-6 py-2.5 rounded-full font-semibold text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 transition-all shadow-md shadow-indigo-500/20 flex items-center gap-2"
+                            className="px-6 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-900 disabled:opacity-50 transition-all shadow-md shadow-black/20 flex items-center gap-2"
                         >
                             {isDeploying || isToolExecuting ? (
                                 <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Deploying...</>
