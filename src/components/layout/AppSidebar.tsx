@@ -1,6 +1,6 @@
 "use client";
 
-import { useUIStore, AmpRoute } from "@/store/uiStore";
+import { useUIStore, AmpRoute, AgentConfig, TaskConfig } from "@/store/uiStore";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 
@@ -145,22 +145,48 @@ export default function AppSidebar() {
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
 
+    // ── Crew Config from store (merged from AgentDashboard left panel) ──
+    const agentConfig = useUIStore((s) => s.agentConfig);
+    const setAgentConfig = useUIStore((s) => s.setAgentConfig);
+    const taskConfig = useUIStore((s) => s.taskConfig);
+    const setTaskConfig = useUIStore((s) => s.setTaskConfig);
+    const selectedAgentId = useUIStore((s) => s.selectedAgentId);
+    const setSelectedAgentId = useUIStore((s) => s.setSelectedAgentId);
+    const selectedTaskId = useUIStore((s) => s.selectedTaskId);
+    const setSelectedTaskId = useUIStore((s) => s.setSelectedTaskId);
+    const activeProviders = useUIStore((s) => s.activeProviders);
+
     useEffect(() => setMounted(true), []);
+
+    // Show crew config section when on agents-repository route
+    const showCrewConfig = activeAmpRoute === "agents-repository";
+
+    const addAgent = () => {
+        const id = crypto.randomUUID();
+        setAgentConfig([...agentConfig, { id, role: "New Agent", goal: "", backstory: "", provider: activeProviders[0] || "openai" }]);
+        setSelectedAgentId(id);
+    };
+
+    const addTask = () => {
+        const id = crypto.randomUUID();
+        setTaskConfig([...taskConfig, { id, description: "New Task", expected_output: "", is_structured: false }]);
+        setSelectedTaskId(id);
+    };
 
     return (
         <aside className="w-56 flex flex-col h-full bg-white dark:bg-[#171717] border-r border-slate-200 dark:border-slate-800 shrink-0">
             {/* ── Logo ── */}
             <div className="px-5 py-5 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 flex items-center justify-center">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white dark:text-slate-900">
                             <path d="M12 2L2 7l10 5 10-5-10-5z" />
                             <path d="M2 17l10 5 10-5" />
                             <path d="M2 12l10 5 10-5" />
                         </svg>
                     </div>
                     <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight italic">
-                        Plot<span className="text-red-500">AI</span>
+                        PlotAI
                     </span>
                 </div>
             </div>
@@ -182,12 +208,12 @@ export default function AppSidebar() {
                                         className={`
                                             w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150
                                             ${isActive
-                                                ? "bg-red-500 text-white shadow-sm shadow-red-500/20"
+                                                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50"
                                             }
                                         `}
                                     >
-                                        <span className={isActive ? "text-white" : "text-slate-500 dark:text-slate-400"}>
+                                        <span className={isActive ? "text-white dark:text-slate-900" : "text-slate-500 dark:text-slate-400"}>
                                             {item.icon}
                                         </span>
                                         {item.label}
@@ -197,6 +223,59 @@ export default function AppSidebar() {
                         </div>
                     </div>
                 ))}
+
+                {/* ── Crew Configuration (merged from AgentDashboard) ── */}
+                {showCrewConfig && (
+                    <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
+                        <h4 className="px-2 mb-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                            CREW CONFIG
+                        </h4>
+
+                        {/* Agents */}
+                        <div className="mb-4">
+                            <div className="flex items-center justify-between px-2 mb-1.5">
+                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Agents</span>
+                                <button onClick={addAgent} className="text-indigo-500 hover:text-indigo-600 text-[10px] font-bold">+ New</button>
+                            </div>
+                            <div className="space-y-0.5">
+                                {agentConfig.map((agent) => (
+                                    <button
+                                        key={agent.id}
+                                        onClick={() => setSelectedAgentId(agent.id)}
+                                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${selectedAgentId === agent.id
+                                                ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold"
+                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            }`}
+                                    >
+                                        {agent.role || "Untitled Agent"}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Tasks */}
+                        <div>
+                            <div className="flex items-center justify-between px-2 mb-1.5">
+                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tasks</span>
+                                <button onClick={addTask} className="text-indigo-500 hover:text-indigo-600 text-[10px] font-bold">+ New</button>
+                            </div>
+                            <div className="space-y-0.5">
+                                {taskConfig.map((task) => (
+                                    <button
+                                        key={task.id}
+                                        onClick={() => setSelectedTaskId(task.id)}
+                                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${selectedTaskId === task.id
+                                                ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold"
+                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            }`}
+                                    >
+                                        <span className="line-clamp-1">{task.description || "Untitled Task"}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </nav>
 
             {/* ── Theme toggle ── */}
@@ -228,7 +307,7 @@ export default function AppSidebar() {
 
             {/* ── Logout ── */}
             <div className="px-3 py-3 border-t border-slate-200 dark:border-slate-800">
-                <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white transition-colors">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                         <polyline points="16 17 21 12 16 7" />

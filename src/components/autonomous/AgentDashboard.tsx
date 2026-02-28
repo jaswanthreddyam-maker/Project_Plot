@@ -194,50 +194,6 @@ export default function AgentDashboard() {
     return (
         <div className="flex h-full w-full bg-slate-50 dark:bg-[#171717] overflow-hidden relative">
 
-            {/* ── Left Sidebar (Navigation) ── */}
-            <div className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full shrink-0 overflow-y-auto hidden md:flex">
-                <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-                    <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Crew Configuration</h3>
-
-                    {/* Agents Section */}
-                    <div className="mb-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Agents</span>
-                            <button onClick={addAgent} className="text-indigo-500 hover:text-indigo-600 text-xs font-semibold">+ New</button>
-                        </div>
-                        <div className="space-y-1">
-                            {agentConfig.map(agent => (
-                                <button
-                                    key={agent.id}
-                                    onClick={() => setSelectedAgentId(agent.id)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedAgentId === agent.id ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-medium" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-                                >
-                                    {agent.role || "Untitled Agent"}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Tasks Section */}
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tasks</span>
-                            <button onClick={addTask} className="text-indigo-500 hover:text-indigo-600 text-xs font-semibold">+ New</button>
-                        </div>
-                        <div className="space-y-1">
-                            {taskConfig.map(task => (
-                                <button
-                                    key={task.id}
-                                    onClick={() => setSelectedTaskId(task.id)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedTaskId === task.id ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-medium" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-                                >
-                                    <span className="line-clamp-1">{task.description || "Untitled Task"}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             {/* ── Center Canvas (Forms) ── */}
             <div className="flex-1 flex flex-col h-full overflow-y-auto">
@@ -255,7 +211,7 @@ export default function AgentDashboard() {
                         >
                             {isDeploying || isToolExecuting ? (
                                 <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Deploying...</>
-                            ) : "🚀 Deploy Crew"}
+                            ) : "Deploy Plot"}
                         </button>
                     </div>
 

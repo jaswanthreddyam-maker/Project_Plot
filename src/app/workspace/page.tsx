@@ -17,7 +17,6 @@ import PromptInput from "@/components/workspace/PromptInput";
 import ProfileDropdown from "@/components/workspace/ProfileDropdown";
 import ComparisonToggle from "@/components/workspace/ComparisonToggle";
 import AssistantToggle from "@/components/workspace/AssistantToggle";
-import CodeMentorToggle from "@/components/workspace/CodeMentorToggle";
 import MentorOverlay from "@/components/mentor/MentorOverlay";
 import OtherToolsToggle from "@/components/tools/OtherToolsToggle";
 import OtherToolsMenu from "@/components/tools/OtherToolsMenu";
@@ -328,25 +327,57 @@ export default function WorkspacePage() {
         </>
     );
 
-    /* ═══ Determine if current route shows the chat header ═══ */
+    /* ═══ Determine mode & header logic ═══ */
     const isCrewStudio = activeAmpRoute === "crew-studio";
+    const activeWorkspace = useUIStore((s) => s.activeWorkspace);
+    const setActiveWorkspace = useUIStore((s) => s.setActiveWorkspace);
+    const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+    const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
+    const isAutonomous = activeWorkspace === "autonomous";
 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200" suppressHydrationWarning>
-            {/* Header — only on crew-studio */}
-            {isCrewStudio && (
-                <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#262626]">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Crew Studio</h1>
-                    </div>
+            {/* Header */}
+            <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#262626]">
+                <div className="flex items-center gap-3">
+                    {/* Dynamic left icon: Back button (autonomous) or Hamburger (chat) */}
+                    {isAutonomous ? (
+                        <button
+                            onClick={() => setActiveWorkspace("chat")}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="19" y1="12" x2="5" y2="12" />
+                                <polyline points="12 19 5 12 12 5" />
+                            </svg>
+                            Back to Chat
+                        </button>
+                    ) : (
+                        sidebarCollapsed && (
+                            <button
+                                onClick={() => setSidebarCollapsed(false)}
+                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors mr-2"
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600 dark:text-gray-400">
+                                    <line x1="3" y1="6" x2="21" y2="6" />
+                                    <line x1="3" y1="12" x2="21" y2="12" />
+                                    <line x1="3" y1="18" x2="21" y2="18" />
+                                </svg>
+                            </button>
+                        )
+                    )}
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {isCrewStudio ? "Crew Studio" : isAutonomous ? "PlotAI Workspace" : "Workspace"}
+                    </h1>
+                </div>
 
+                {isCrewStudio && (
                     <div className="flex items-center gap-3">
                         <AssistantToggle />
                         <div className="relative flex items-center gap-3">
                             <OtherToolsToggle />
                             <OtherToolsMenu />
                         </div>
-                        <CodeMentorToggle />
                         <ComparisonToggle />
                         {session?.user ? (
                             <ProfileDropdown />
@@ -356,8 +387,8 @@ export default function WorkspacePage() {
                             </a>
                         )}
                     </div>
-                </header>
-            )}
+                )}
+            </header>
 
             {renderRouteContent()}
 
@@ -366,4 +397,3 @@ export default function WorkspacePage() {
         </div>
     );
 }
-
