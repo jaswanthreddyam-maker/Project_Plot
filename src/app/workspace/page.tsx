@@ -25,8 +25,8 @@ import AgentDashboard from "@/components/autonomous/AgentDashboard";
 import LLMConnections from "@/components/autonomous/LLMConnections";
 import ToolsIntegrations from "@/components/autonomous/ToolsIntegrations";
 import Traces from "@/components/autonomous/Traces";
+import Automations from "@/components/autonomous/Automations";
 import {
-    AutomationsPage,
     EnvironmentVariablesPage,
     UsagePage,
     BillingPage,
@@ -201,7 +201,7 @@ export default function WorkspacePage() {
             case "llm-connections":
                 return <LLMConnections />;
             case "automations":
-                return <AutomationsPage />;
+                return <Automations />;
             case "tools-integrations":
                 return <ToolsIntegrations />;
             case "traces":

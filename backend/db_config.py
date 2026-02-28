@@ -72,8 +72,11 @@ class ScheduledFlow(Base):
     __tablename__ = "scheduled_flows"
 
     id = Column(String, primary_key=True)
-    cron_expression = Column(String, nullable=False) # e.g. 'every_hour', 'daily_9am'
-    payload_json = Column(String, nullable=False) # Store the arguments for PlotAutonomousFlow
+    crew_name = Column(String, nullable=False, default="Autonomous Flow")
+    cron_schedule = Column(String, nullable=False) # e.g. '0 9 * * *' or preset string
+    payload = Column(String, nullable=False) # Store the JSON arguments
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class AgentTrace(Base):
     __tablename__ = "agent_traces"

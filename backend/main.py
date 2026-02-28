@@ -19,6 +19,10 @@ app.include_router(settings_router)
 from routers.traces import router as traces_router
 app.include_router(traces_router)
 
+# Register Automations Router
+from routers.automations import router as automations_router
+app.include_router(automations_router)
+
 # Allow Next.js frontend to talk to FastAPI
 app.add_middleware(
     CORSMiddleware,
