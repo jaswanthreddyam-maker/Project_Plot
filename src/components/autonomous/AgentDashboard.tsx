@@ -33,7 +33,7 @@ export default function AgentDashboard() {
     // Initial setup if empty
     useEffect(() => {
         if (agentConfig.length === 0) {
-            const defaultAgent = { id: crypto.randomUUID(), role: "Senior Researcher", goal: "Uncover facts", backstory: "Expert analyst", provider: activeProviders[0] || "openai" };
+            const defaultAgent = { id: crypto.randomUUID(), role: "Senior Researcher", goal: "Uncover facts", backstory: "Expert analyst", provider: activeProviders[0] || "openai", tools: [] as string[] };
             setAgentConfig([defaultAgent]);
             setSelectedAgentId(defaultAgent.id);
         }
@@ -47,7 +47,7 @@ export default function AgentDashboard() {
     // ── Handlers for Left Sidebar ────────────────────────────
     const addAgent = () => {
         const id = crypto.randomUUID();
-        setAgentConfig([...agentConfig, { id, role: "New Agent", goal: "", backstory: "", provider: activeProviders[0] || "openai" }]);
+        setAgentConfig([...agentConfig, { id, role: "New Agent", goal: "", backstory: "", provider: activeProviders[0] || "openai", tools: [] }]);
         setSelectedAgentId(id);
     };
 
@@ -282,6 +282,39 @@ export default function AgentDashboard() {
                                                 <option key={p} value={p}>{p}</option>
                                             ))}
                                         </select>
+                                    </div>
+                                    {/* Assigned Tools */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 mb-2">Assigned Tools</label>
+                                        <div className="space-y-2">
+                                            {["Web Search", "Web Scraper"].map((toolName) => {
+                                                const isChecked = (currentAgent.tools || []).includes(toolName);
+                                                return (
+                                                    <label key={toolName} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={() => {
+                                                                const tools = currentAgent.tools || [];
+                                                                updateAgent({
+                                                                    tools: isChecked
+                                                                        ? tools.filter((t) => t !== toolName)
+                                                                        : [...tools, toolName],
+                                                                });
+                                                            }}
+                                                            className="w-4 h-4 text-indigo-500 rounded focus:ring-indigo-500 border-slate-300 dark:border-slate-600"
+                                                        />
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm">{toolName === "Web Search" ? "🔍" : "🌐"}</span>
+                                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{toolName}</span>
+                                                        </div>
+                                                        <span className="ml-auto text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                                                            {toolName === "Web Search" ? "SerperDev" : "ScrapeWebsite"}
+                                                        </span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

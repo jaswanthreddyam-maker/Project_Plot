@@ -106,6 +106,35 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
                 finally:
                     db_session.close()
                 
+                # ── Dynamic Tool Injection ────────────────────────────
+                # Read each agent's tools list and instantiate CrewAI tool objects
+                try:
+                    from crewai_tools import SerperDevTool, ScrapeWebsiteTool
+                except ImportError:
+                    SerperDevTool = None
+                    ScrapeWebsiteTool = None
+
+                TOOL_MAP = {}
+                if SerperDevTool:
+                    TOOL_MAP["Web Search"] = SerperDevTool
+                if ScrapeWebsiteTool:
+                    TOOL_MAP["Web Scraper"] = ScrapeWebsiteTool
+
+                agent_tools_map = {}  # agent_id -> [tool_instance, ...]
+                for agent_cfg in arguments.get("agents", []):
+                    agent_id = agent_cfg.get("id", "")
+                    requested_tools = agent_cfg.get("tools", [])
+                    tool_instances = []
+                    for tool_name in requested_tools:
+                        tool_cls = TOOL_MAP.get(tool_name)
+                        if tool_cls:
+                            tool_instances.append(tool_cls())
+                    if tool_instances:
+                        agent_tools_map[agent_id] = tool_instances
+
+                # Pass tool map into Flow state for Crew creation
+                flow.state.agent_tools_map = agent_tools_map
+
                 # Run the Flow
                 final_output = flow.kickoff()
                 

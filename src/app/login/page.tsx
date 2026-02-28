@@ -18,19 +18,12 @@ function LoginPageContent() {
     const [loading, setLoading] = useState(false);
     const [googleAvailable, setGoogleAvailable] = useState(false);
     const [formReady, setFormReady] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const emailRef = useRef<HTMLInputElement>(null);
     const passwordRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        const t = setTimeout(() => {
-            setFormReady(true);
-            setTimeout(() => {
-                if (emailRef.current) emailRef.current.value = "";
-                if (passwordRef.current) passwordRef.current.value = "";
-                setEmail("");
-                setPassword("");
-            }, 50);
-        }, 100);
+        const t = setTimeout(() => setFormReady(true), 100);
         return () => clearTimeout(t);
     }, []);
 
@@ -191,20 +184,40 @@ function LoginPageContent() {
 
                             <div>
                                 <label className="block text-xs font-medium text-gray-600 mb-1.5">Password</label>
-                                <input
-                                    ref={passwordRef}
-                                    type="password"
-                                    name="login-password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="........"
-                                    required
-                                    minLength={8}
-                                    autoComplete="off"
-                                    data-lpignore="true"
-                                    data-1p-ignore
-                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-[#1a1a1a] placeholder:text-gray-400 outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500 transition-all"
-                                />
+                                <div className="relative">
+                                    <input
+                                        ref={passwordRef}
+                                        type={showPassword ? "text" : "password"}
+                                        name="login-password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="........"
+                                        required
+                                        minLength={8}
+                                        autoComplete="off"
+                                        data-lpignore="true"
+                                        data-1p-ignore
+                                        className="w-full px-4 py-2.5 pr-10 rounded-lg border border-gray-300 bg-white text-sm text-[#1a1a1a] placeholder:text-gray-400 outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500 transition-all"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? (
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                                                <line x1="1" y1="1" x2="23" y2="23" />
+                                            </svg>
+                                        ) : (
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
                             <button

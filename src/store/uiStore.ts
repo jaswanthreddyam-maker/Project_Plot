@@ -47,6 +47,7 @@ export interface AgentConfig {
     goal: string;
     backstory: string;
     provider: string; // E.g., OpenAI, Gemini
+    tools: string[];  // E.g., ["Web Search", "Web Scraper"]
 }
 
 export interface TaskConfig {

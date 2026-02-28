@@ -163,7 +163,7 @@ export default function AppSidebar() {
 
     const addAgent = () => {
         const id = crypto.randomUUID();
-        setAgentConfig([...agentConfig, { id, role: "New Agent", goal: "", backstory: "", provider: activeProviders[0] || "openai" }]);
+        setAgentConfig([...agentConfig, { id, role: "New Agent", goal: "", backstory: "", provider: activeProviders[0] || "openai", tools: [] }]);
         setSelectedAgentId(id);
     };
 
@@ -243,8 +243,8 @@ export default function AppSidebar() {
                                         key={agent.id}
                                         onClick={() => setSelectedAgentId(agent.id)}
                                         className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${selectedAgentId === agent.id
-                                                ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold"
-                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold"
+                                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                                             }`}
                                     >
                                         {agent.role || "Untitled Agent"}
@@ -265,8 +265,8 @@ export default function AppSidebar() {
                                         key={task.id}
                                         onClick={() => setSelectedTaskId(task.id)}
                                         className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${selectedTaskId === task.id
-                                                ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold"
-                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                            ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold"
+                                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                                             }`}
                                     >
                                         <span className="line-clamp-1">{task.description || "Untitled Task"}</span>
