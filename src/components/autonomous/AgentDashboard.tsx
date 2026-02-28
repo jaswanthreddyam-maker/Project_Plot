@@ -15,7 +15,8 @@ export default function AgentDashboard() {
         selectedTaskId, setSelectedTaskId,
         activeProviders,
         isToolExecuting, setToolExecutionStart,
-        toolTaskId, toolExecutionState, setToolExecutionState, setToolExecutionEnd
+        toolTaskId, toolExecutionState, setToolExecutionState, setToolExecutionEnd,
+        connectedIntegrations
     } = useUIStore();
 
     // ── Deployment State ─────────────────────────────────────
@@ -372,29 +373,71 @@ export default function AgentDashboard() {
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 mb-2">Assigned Tools</label>
                                         <div className="space-y-2">
-                                            {["Web Search", "Web Scraper"].map((toolName) => {
-                                                const isChecked = (currentAgent.tools || []).includes(toolName);
+                                            {[
+                                                { id: "Web Search", name: "Web Search", provider: "SerperDev", integration: null },
+                                                { id: "Web Scraper", name: "Web Scraper", provider: "ScrapeWebsite", integration: null },
+                                                { id: "GitHub", name: "GitHub", provider: "crewai_tools", integration: "github" },
+                                                { id: "Asana", name: "Asana", provider: "crewai_tools", integration: "asana" },
+                                                { id: "Jira", name: "Jira", provider: "crewai_tools", integration: "jira" }
+                                            ].map((tool) => {
+                                                const isChecked = (currentAgent.tools || []).includes(tool.id);
+
+                                                // Lock check
+                                                const requiresAuth = tool.integration !== null;
+                                                const isAuthorized = requiresAuth ? connectedIntegrations.includes(tool.integration as string) : true;
+                                                const isLocked = requiresAuth && !isAuthorized;
+
                                                 return (
-                                                    <label key={toolName} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors">
+                                                    <label
+                                                        key={tool.id}
+                                                        title={isLocked ? `Connect ${tool.name} in Tools & Integrations to use this tool.` : ""}
+                                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors
+                                                            ${isLocked
+                                                                ? "border-slate-100 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/20 cursor-not-allowed opacity-60"
+                                                                : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700"
+                                                            }
+                                                        `}
+                                                    >
                                                         <input
                                                             type="checkbox"
-                                                            checked={isChecked}
+                                                            checked={isChecked && !isLocked}
+                                                            disabled={isLocked}
                                                             onChange={() => {
+                                                                if (isLocked) return;
                                                                 const tools = currentAgent.tools || [];
                                                                 updateAgent({
                                                                     tools: isChecked
-                                                                        ? tools.filter((t) => t !== toolName)
-                                                                        : [...tools, toolName],
+                                                                        ? tools.filter((t) => t !== tool.id)
+                                                                        : [...tools, tool.id],
                                                                 });
                                                             }}
-                                                            className="w-4 h-4 text-indigo-500 rounded focus:ring-indigo-500 border-slate-300 dark:border-slate-600"
+                                                            className={`w-4 h-4 rounded focus:ring-indigo-500 border-slate-300 dark:border-slate-600
+                                                                ${isLocked ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-indigo-500"}
+                                                            `}
                                                         />
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-sm">{toolName === "Web Search" ? "🔍" : "🌐"}</span>
-                                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{toolName}</span>
+                                                            <span className="text-sm">
+                                                                {tool.name === "Web Search" ? "🔍" :
+                                                                    tool.name === "Web Scraper" ? "🌐" :
+                                                                        tool.name === "GitHub" ? "🐙" :
+                                                                            tool.name === "Asana" ? "🏗️" :
+                                                                                tool.name === "Jira" ? "📝" : "🔧"}
+                                                            </span>
+                                                            <span className={`text-sm font-medium ${isLocked ? "text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-300"}`}>
+                                                                {tool.name}
+                                                            </span>
+                                                            {isLocked && (
+                                                                <span className="text-[10px] bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded ml-1 flex items-center gap-1">
+                                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                                                    </svg>
+                                                                    Locked
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <span className="ml-auto text-[10px] font-medium text-slate-400 dark:text-slate-500">
-                                                            {toolName === "Web Search" ? "SerperDev" : "ScrapeWebsite"}
+                                                            {tool.provider}
                                                         </span>
                                                     </label>
                                                 );
