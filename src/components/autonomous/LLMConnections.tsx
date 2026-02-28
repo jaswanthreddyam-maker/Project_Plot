@@ -170,7 +170,7 @@ export default function LLMConnections() {
                     <button
                         onClick={handleSave}
                         disabled={saving || !apiKey.trim()}
-                        className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors shadow-sm"
+                        className="px-6 py-2.5 bg-black text-white dark:bg-white dark:text-black border border-black dark:border-white hover:opacity-90 text-sm font-semibold rounded-lg disabled:opacity-50 transition-all shadow-sm focus:outline-none focus:ring-0"
                     >
                         {saving ? "Saving..." : "Save Connection"}
                     </button>

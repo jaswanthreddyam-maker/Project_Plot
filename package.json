@@ -25,6 +25,7 @@
     "dotenv": "^17.3.1",
     "framer-motion": "^12.34.3",
     "immer": "^11.1.4",
+    "lucide-react": "^0.575.0",
     "mermaid": "^11.12.3",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",

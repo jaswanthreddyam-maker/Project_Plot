@@ -222,7 +222,7 @@ function AssistantPanel({ getContext }: AssistantOverlayProps) {
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-800 backdrop-blur-md bg-white/50 dark:bg-slate-900/50 sticky top-0 z-10">
                         <div className="flex items-center gap-3">
-                            <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
                             <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 tracking-tight">Plot Assistant</h2>
                         </div>
                         <button
@@ -290,7 +290,7 @@ function AssistantPanel({ getContext }: AssistantOverlayProps) {
                                     </span>
                                 </div>
                             )}
-                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-800 p-1.5 rounded-full border border-gray-200 dark:border-slate-700 shadow-lg focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 transition-all">
+                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-800 p-1.5 rounded-full border border-gray-200 dark:border-slate-700 shadow-lg transition-all">
                                 <input
                                     suppressHydrationWarning
                                     ref={inputRef}

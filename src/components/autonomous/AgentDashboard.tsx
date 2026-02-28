@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore, AgentConfig, TaskConfig } from "@/store/uiStore";
 import { motion, AnimatePresence } from "framer-motion";
+import { Lock, Brain, Calendar } from "lucide-react";
 
 import KnowledgeManager from "./KnowledgeManager";
 
@@ -251,7 +252,7 @@ export default function AgentDashboard() {
                                 disabled={isDeploying || isToolExecuting || isScheduling}
                                 className="px-5 py-2.5 rounded-full font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm"
                             >
-                                ⏱️ Schedule
+                                <Calendar size={16} /> Schedule
                             </button>
                             <button
                                 onClick={deployCrew}
@@ -335,7 +336,7 @@ export default function AgentDashboard() {
 
                                 <div className="space-y-4">
                                     <div className="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 text-xs font-semibold rounded-lg flex items-center gap-2 border border-indigo-100 dark:border-indigo-800/50">
-                                        <span>🧠</span> Long-Term Memory (Active)
+                                        <Brain size={14} className="text-indigo-600 dark:text-indigo-400" /> Long-Term Memory (Active)
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Role</label>
@@ -434,7 +435,7 @@ export default function AgentDashboard() {
                                                             </span>
                                                             {isLocked && (
                                                                 <span className="text-sm ml-1 select-none" title="Locked">
-                                                                    🔒
+                                                                    <Lock size={12} className="text-slate-400" />
                                                                 </span>
                                                             )}
                                                         </div>

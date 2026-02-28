@@ -126,7 +126,7 @@ export default function EnvVariables() {
                         <button
                             type="submit"
                             disabled={isSubmitting || !envKey.trim() || !envValue.trim()}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed h-[42px]"
+                            className="bg-black text-white dark:bg-white dark:text-black border border-black dark:border-white hover:opacity-90 px-6 py-2.5 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed h-[42px]"
                         >
                             {isSubmitting ? "Saving..." : "Save Variable"}
                         </button>
