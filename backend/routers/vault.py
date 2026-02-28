@@ -46,11 +46,11 @@ class VaultKeyResponse(BaseModel):
 def save_vault_key(req: VaultSaveRequest):
     """Encrypts and stores a key in the Vault."""
     if not req.value or not req.value.strip():
-        raise HTTPException(status_code=400, detail="Mawa, key empty ga undhi. Paste chesi try cheyi.")
+        raise HTTPException(status_code=400, detail="API key cannot be empty. Please paste a valid key.")
     
     # Optional basic prefix validation for OpenAI
     if req.key_name == "OPENAI_API_KEY" and not req.value.startswith("sk-") and not req.value.startswith("sk-proj-"):
-        raise HTTPException(status_code=400, detail="Key format correct ga ledhu. Proper API key paste cheyyi.")
+        raise HTTPException(status_code=400, detail="Invalid format. OpenAI keys must start with 'sk-'.")
         
     try:
         encrypted_value = fernet.encrypt(req.value.encode()).decode()
@@ -79,7 +79,7 @@ def save_vault_key(req: VaultSaveRequest):
         return {"status": "success", "message": f"Key '{req.key_name}' saved securely."}
     except Exception as e:
         logging.error(f"Error saving vault key: {e}")
-        raise HTTPException(status_code=500, detail="Database busy undhi, malli save cheyi.")
+        raise HTTPException(status_code=500, detail="Database is currently busy. Please try saving again in a moment.")
 
 @router.get("/list", response_model=List[VaultKeyResponse])
 def list_vault_keys():

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, Trash2, ChevronDown, Database, LayoutTemplate, Moon, Sun, AlertCircle, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, Trash2, ChevronDown, Database, LayoutTemplate, Moon, Sun, AlertTriangle, CheckCircle } from "lucide-react";
 import { useTheme } from "next-themes";
 import { API_BASE, fetchWithTimeout } from "@/lib/api";
 
@@ -209,7 +209,7 @@ export default function Settings() {
             const data = await res.json();
 
             if (res.ok) {
-                setToast({ message: "Success: Key encrypted and saved.", type: "success" });
+                setToast({ message: "Success: API key encrypted and saved to Vault.", type: "success" });
                 setSavedSuccess(prev => ({ ...prev, [keyName]: true }));
                 setTimeout(() => setSavedSuccess(prev => ({ ...prev, [keyName]: false })), 2000);
                 setTimeout(() => setToast(null), 4000);
@@ -492,7 +492,7 @@ export default function Settings() {
                                                             value={value}
                                                             onChange={(e) => handleInputChange(keyName, e.target.value)}
                                                             placeholder="Paste your key here..."
-                                                            className="w-full bg-gray-50 dark:bg-[#1A1A1A] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm focus:outline-none ring-0 placeholder:text-gray-400 transition-colors"
+                                                            className="w-full bg-white dark:bg-[#000000] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-0 focus:border-black dark:focus:border-white placeholder:text-gray-400 transition-colors"
                                                             data-1p-ignore
                                                         />
                                                         <button
@@ -523,10 +523,10 @@ export default function Settings() {
                                                                 animate={{ scale: 1, opacity: 1 }}
                                                                 className="flex items-center justify-center"
                                                             >
-                                                                <CheckCircle size={18} />
+                                                                <ShieldCheck size={18} />
                                                             </motion.div>
                                                         ) : (
-                                                            <span className="text-xs font-bold">{isSaving ? "..." : "SAVE"}</span>
+                                                            <span className="text-xs font-bold">{isSaving ? "Saving..." : "SAVE"}</span>
                                                         )}
                                                     </button>
                                                 </div>
@@ -550,14 +550,14 @@ export default function Settings() {
                         className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border transition-all
                             ${toast.type === "success"
                                 ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                : "bg-white text-black border-red-200 dark:bg-black dark:text-white dark:border-red-900/30"
+                                : "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
                             }
                         `}
                     >
                         {toast.type === "success" ? (
-                            <CheckCircle size={20} className={toast.type === "success" ? "text-emerald-500" : "text-black dark:text-white"} />
+                            <ShieldCheck size={20} className="text-white dark:text-black" />
                         ) : (
-                            <AlertCircle size={20} className="text-red-500" />
+                            <AlertTriangle size={20} className="text-white dark:text-black" />
                         )}
                         <span className="text-sm font-bold tracking-tight">{toast.message}</span>
                     </motion.div>
