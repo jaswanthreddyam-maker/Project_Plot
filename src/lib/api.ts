@@ -2,7 +2,7 @@
  * Centralized API configuration.
  * Uses NEXT_PUBLIC_API_URL env var when deployed, falls back to 127.0.0.1 for local dev.
  */
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 /**
  * Fetch wrapper that adds an explicit timeout to requests.
