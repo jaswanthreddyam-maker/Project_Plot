@@ -28,6 +28,7 @@ import Traces from "@/components/autonomous/Traces";
 import Automations from "@/components/autonomous/Automations";
 import EnvVariables from "@/components/autonomous/EnvVariables";
 import Settings from "@/components/autonomous/Settings";
+import Templates from "@/components/autonomous/Templates";
 import { UsagePage } from "@/components/autonomous/Usage";
 import {
     AutomationsPage as AutomationsPlaceholder,
@@ -201,6 +202,8 @@ export default function WorkspacePage() {
         switch (activeAmpRoute) {
             case "agents-repository":
                 return <CrewStudio />;
+            case "templates":
+                return <Templates />;
             case "llm-connections":
             case "environment-variables":
             case "settings":
