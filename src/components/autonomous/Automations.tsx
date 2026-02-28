@@ -131,8 +131,27 @@ export default function Automations() {
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center py-20">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                    <div className="bg-[#171717] border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-pulse">
+                        <div className="bg-[#1a1a1a] border-b border-slate-800 h-10 w-full" />
+                        <div className="divide-y divide-slate-800/50">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="flex items-center px-6 py-4">
+                                    <div className="flex-1">
+                                        <div className="h-4 bg-slate-800 rounded w-1/3 mb-2" />
+                                        <div className="h-3 bg-slate-800 rounded w-1/4" />
+                                    </div>
+                                    <div className="w-32">
+                                        <div className="h-6 bg-slate-800 rounded w-full" />
+                                    </div>
+                                    <div className="w-40 px-6">
+                                        <div className="h-4 bg-slate-800 rounded w-full" />
+                                    </div>
+                                    <div className="w-16">
+                                        <div className="h-5 bg-slate-800 rounded-full w-9" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 ) : automations.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-32 text-slate-500 space-y-4 border border-slate-800 border-dashed rounded-2xl bg-[#171717]">

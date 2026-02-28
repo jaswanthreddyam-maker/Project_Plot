@@ -21,16 +21,18 @@ import MentorOverlay from "@/components/mentor/MentorOverlay";
 import OtherToolsToggle from "@/components/tools/OtherToolsToggle";
 import OtherToolsMenu from "@/components/tools/OtherToolsMenu";
 import ToolExecutionStream from "@/components/tools/ToolExecutionStream";
-import AgentDashboard from "@/components/autonomous/AgentDashboard";
+import CrewStudio from "@/components/autonomous/CrewStudio";
 import LLMConnections from "@/components/autonomous/LLMConnections";
 import ToolsIntegrations from "@/components/autonomous/ToolsIntegrations";
 import Traces from "@/components/autonomous/Traces";
 import Automations from "@/components/autonomous/Automations";
 import EnvVariables from "@/components/autonomous/EnvVariables";
+import { UsagePage } from "@/components/autonomous/Usage";
 import {
-    UsagePage,
+    AutomationsPage as AutomationsPlaceholder,
     BillingPage,
     SettingsPage,
+    ToolsIntegrationsPage
 } from "@/components/layout/PlaceholderPages";
 
 const ALL_PROVIDERS: { id: ProviderOption; label: string }[] = [
@@ -197,7 +199,7 @@ export default function WorkspacePage() {
     const renderRouteContent = () => {
         switch (activeAmpRoute) {
             case "agents-repository":
-                return <AgentDashboard />;
+                return <CrewStudio />;
             case "llm-connections":
                 return <LLMConnections />;
             case "automations":
@@ -480,7 +482,7 @@ export default function WorkspacePage() {
 
     /* ── AUTONOMOUS MODE ── */
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200" suppressHydrationWarning>
+        <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200 autonomous-theme" suppressHydrationWarning>
             {/* Autonomous Header — Back button */}
             <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#262626]">
                 <div className="flex items-center gap-3">

@@ -121,3 +121,30 @@ body {
   max-width: 100%;
   height: auto;
 }
+
+/* ── Autonomous Theme Styles ───────────────────────────────── */
+.autonomous-theme *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #000 !important;
+}
+
+.autonomous-theme input,
+.autonomous-theme textarea,
+.autonomous-theme select {
+  border-radius: 1rem !important;
+}
+
+.autonomous-theme .save-btn,
+.autonomous-theme .deploy-btn {
+  background-color: #000 !important;
+  color: #fff !important;
+  border-color: #000 !important;
+}
+
+.dark .autonomous-theme .save-btn,
+.dark .autonomous-theme .deploy-btn {
+  background-color: #fff !important;
+  color: #000 !important;
+  border-color: #fff !important;
+}

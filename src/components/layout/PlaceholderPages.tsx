@@ -74,19 +74,6 @@ export function EnvironmentVariablesPage() {
     );
 }
 
-export function UsagePage() {
-    return (
-        <PlaceholderPage
-            title="Usage"
-            description="Track API usage, token consumption, and resource utilization across all your crews and agents."
-            icon={
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-500 dark:text-slate-400">
-                    <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-                </svg>
-            }
-        />
-    );
-}
 
 export function BillingPage() {
     return (
