@@ -64,6 +64,7 @@ export default function EnvVariables() {
                 alert(`Error: ${errText}`);
             }
         } catch (err: any) {
+            console.error("Fetch error:", err);
             alert(`Network Error: ${err.message}`);
         } finally {
             setIsSubmitting(false);
