@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, String, DateTime, Boolean
+from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
 from datetime import datetime
@@ -17,8 +17,7 @@ engine = create_engine(
     connect_args={
         "check_same_thread": False,
         "timeout": 15,
-    },
-    isolation_level="IMMEDIATE" 
+    }
 )
 
 # Apply WAL pragmas upon engine connection
