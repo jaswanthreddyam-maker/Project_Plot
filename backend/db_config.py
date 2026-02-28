@@ -75,5 +75,16 @@ class ScheduledFlow(Base):
     cron_expression = Column(String, nullable=False) # e.g. 'every_hour', 'daily_9am'
     payload_json = Column(String, nullable=False) # Store the arguments for PlotAutonomousFlow
 
+class AgentTrace(Base):
+    __tablename__ = "agent_traces"
+
+    id = Column(String, primary_key=True)
+    execution_id = Column(String, nullable=False, index=True)
+    agent_role = Column(String, nullable=True)
+    task_description = Column(String, nullable=True)
+    status = Column(String, nullable=False) # Running, Success, Failed
+    logs = Column(String, nullable=True) # JSON or Text containing the step details
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
 # Auto-create all tables
 Base.metadata.create_all(engine)

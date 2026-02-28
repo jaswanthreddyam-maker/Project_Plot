@@ -24,9 +24,9 @@ import ToolExecutionStream from "@/components/tools/ToolExecutionStream";
 import AgentDashboard from "@/components/autonomous/AgentDashboard";
 import LLMConnections from "@/components/autonomous/LLMConnections";
 import ToolsIntegrations from "@/components/autonomous/ToolsIntegrations";
+import Traces from "@/components/autonomous/Traces";
 import {
     AutomationsPage,
-    TracesPage,
     EnvironmentVariablesPage,
     UsagePage,
     BillingPage,
@@ -205,7 +205,7 @@ export default function WorkspacePage() {
             case "tools-integrations":
                 return <ToolsIntegrations />;
             case "traces":
-                return <TracesPage />;
+                return <Traces />;
             case "environment-variables":
                 return <EnvironmentVariablesPage />;
             case "usage":

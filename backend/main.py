@@ -15,6 +15,10 @@ app = FastAPI(title="Plot Autonomous AI Orchestrator")
 from routers.settings import settings_router
 app.include_router(settings_router)
 
+# Register Traces Router
+from routers.traces import router as traces_router
+app.include_router(traces_router)
+
 # Allow Next.js frontend to talk to FastAPI
 app.add_middleware(
     CORSMiddleware,

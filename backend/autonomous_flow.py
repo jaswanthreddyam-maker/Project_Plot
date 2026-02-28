@@ -7,6 +7,8 @@ import json
 import redis
 import os
 
+from db_config import get_db_session, AgentTrace
+
 redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0"))
 
 class PlotState(BaseModel):
@@ -71,11 +73,43 @@ class PlotAutonomousFlow(Flow[PlotState]):
             )
             crew_tasks.append(task)
             
+        def trace_step(step_output):
+            """Callback fired after every agent step. We save this to SQLite."""
+            try:
+                # step_output could be a string or a tuple depending on the CrewAI version
+                # Usually it's an object containing thought, tool, log, etc.
+                
+                # Safely serialize whatever output we receive.
+                if hasattr(step_output, 'model_dump_json'):
+                    log_str = step_output.model_dump_json()
+                elif hasattr(step_output, '__dict__'):
+                    # Strip out circular references if needed
+                    safe_dict = {k: v for k, v in step_output.__dict__.items() if isinstance(v, (str, int, float, bool, list, dict))}
+                    log_str = json.dumps(safe_dict)
+                else:
+                    log_str = str(step_output)
+
+                with get_db_session() as db:
+                    import uuid
+                    new_trace = AgentTrace(
+                        id=str(uuid.uuid4()),
+                        execution_id=self.state.execution_id,
+                        agent_role="Crew Agent", # Note: We could parse the role from context if passed 
+                        task_description="Agent execution step",
+                        status="Running",
+                        logs=log_str
+                    )
+                    db.add(new_trace)
+                    db.commit()
+            except Exception as e:
+                print(f"[Telemetry Error] Failed to write trace: {e}")
+
         crew = Crew(
             agents=crew_agents,
             tasks=crew_tasks,
             process=Process.sequential,
             verbose=True,
+            step_callback=trace_step,
             # Enabling Memory Systems (Short-term, Long-term, Entity)
             memory=True,
             embedder={
