@@ -427,7 +427,7 @@ export default function CrewStudio() {
             const agentName = agent ? agent.role : "System Agent";
 
             // Mark running
-            setTaskConfig(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Running' } : t));
+            setTaskConfig(useUIStore.getState().taskConfig.map(t => t.id === task.id ? { ...t, status: 'Running' as const } : t));
             setActiveAgentId(agent?.id || null);
             setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${agentName}] Started Task: ${task.description}`]);
 
@@ -438,7 +438,7 @@ export default function CrewStudio() {
             setTerminalChunks(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${agentName}] Task computation complete.`]);
 
             // Mark completed
-            setTaskConfig(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Completed' } : t));
+            setTaskConfig(useUIStore.getState().taskConfig.map(t => t.id === task.id ? { ...t, status: 'Completed' as const } : t));
 
             finalOutput += `### Task: ${task.description}\n**Agent**: ${agentName}\n\n*Simulated generated output containing insights and data processing for this task step.*\n\n---\n\n`;
         }
