@@ -142,6 +142,12 @@ interface UIState {
     setToolExecutionState: (state: string) => void;
     setToolExecutionEnd: () => void;
 
+    // ── Connected Integrations ───────────────────────────
+    connectedIntegrations: string[];
+    setConnectedIntegrations: (integrations: string[]) => void;
+    addConnectedIntegration: (provider: string) => void;
+    removeConnectedIntegration: (provider: string) => void;
+
     // ── Hydration State ──────────────────────────────────
     _hasHydrated: boolean;
     setHasHydrated: (state: boolean) => void;
@@ -320,6 +326,20 @@ export const useUIStore = create<UIState>()(
                 toolExecutionState: null
             }),
 
+            // ── Connected Integrations ───────────────────────────
+            connectedIntegrations: [],
+            setConnectedIntegrations: (integrations) => set({ connectedIntegrations: integrations }),
+            addConnectedIntegration: (provider) =>
+                set((state) => ({
+                    connectedIntegrations: state.connectedIntegrations.includes(provider)
+                        ? state.connectedIntegrations
+                        : [...state.connectedIntegrations, provider]
+                })),
+            removeConnectedIntegration: (provider) =>
+                set((state) => ({
+                    connectedIntegrations: state.connectedIntegrations.filter(p => p !== provider)
+                })),
+
             // ── Hydration State ──────────────────────────────────
             _hasHydrated: false,
             setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -364,6 +384,9 @@ export const useUIStore = create<UIState>()(
                 agentConfig: state.agentConfig,
                 taskConfig: state.taskConfig,
                 activeKnowledgeSources: state.activeKnowledgeSources,
+
+                // Persist Connected Integrations
+                connectedIntegrations: state.connectedIntegrations,
             }),
         }
     )

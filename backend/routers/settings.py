@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from db_config import SessionLocal, LLMConnection
+from db_config import SessionLocal, LLMConnection, IntegrationToken
 
 settings_router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -28,6 +28,16 @@ class ConnectionResponse(BaseModel):
     provider: str
     alias: str
     api_key_masked: str
+    created_at: str
+
+class IntegrationTokenRequest(BaseModel):
+    provider: str
+    token: str
+
+class IntegrationResponse(BaseModel):
+    id: str
+    provider: str
+    token_masked: str
     created_at: str
 
 
@@ -99,5 +109,80 @@ def delete_connection(connection_id: str):
         session.delete(conn)
         session.commit()
         return {"status": "deleted", "id": connection_id}
+    finally:
+        session.close()
+
+
+@settings_router.get("/integrations")
+def get_integrations():
+    """Return all connected integration tokens with masked keys."""
+    session = SessionLocal()
+    try:
+        tokens = session.query(IntegrationToken).order_by(IntegrationToken.created_at.desc()).all()
+        return {
+            "integrations": [
+                {
+                    "id": t.id,
+                    "provider": t.provider,
+                    "token_masked": mask_key(t.token_encrypted),
+                    "created_at": t.created_at.isoformat() if t.created_at else "",
+                }
+                for t in tokens
+            ]
+        }
+    finally:
+        session.close()
+
+
+@settings_router.post("/integrations")
+def save_integration(req: IntegrationTokenRequest):
+    """Store or update a third-party integration token."""
+    if not req.token.strip():
+        raise HTTPException(status_code=400, detail="Token is required.")
+
+    session = SessionLocal()
+    try:
+        provider = req.provider.lower().strip()
+        conn = session.query(IntegrationToken).filter_by(provider=provider).first()
+        
+        encoded_token = base64.b64encode(req.token.encode("utf-8")).decode("utf-8")
+        
+        if conn:
+            conn.token_encrypted = encoded_token
+            conn.created_at = datetime.utcnow()
+        else:
+            conn = IntegrationToken(
+                id=str(uuid.uuid4()),
+                provider=provider,
+                token_encrypted=encoded_token,
+                created_at=datetime.utcnow(),
+            )
+            session.add(conn)
+        
+        session.commit()
+        session.refresh(conn)
+        return {
+            "integration": {
+                "id": conn.id,
+                "provider": conn.provider,
+                "token_masked": mask_key(conn.token_encrypted),
+                "created_at": conn.created_at.isoformat(),
+            }
+        }
+    finally:
+        session.close()
+
+
+@settings_router.delete("/integrations/{provider}")
+def delete_integration(provider: str):
+    """Delete an integration token by provider name."""
+    session = SessionLocal()
+    try:
+        conn = session.query(IntegrationToken).filter_by(provider=provider.lower()).first()
+        if not conn:
+            raise HTTPException(status_code=404, detail="Integration not found.")
+        session.delete(conn)
+        session.commit()
+        return {"status": "deleted", "provider": provider}
     finally:
         session.close()

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUIStore } from "@/store/uiStore";
 
 /* ═══════════════════════════════════════════════════════════════
  * Tools & Integrations — Enterprise-grade integrations dashboard
@@ -134,15 +135,56 @@ const TABS: { id: TabId; label: string }[] = [
 const STATUS_OPTIONS = ["All", "Connected", "Not Connected"];
 
 export default function ToolsIntegrations() {
-    const [activeTab, setActiveTab] = useState<TabId>("agent-apps");
+    const activeTab = useUIStore((s) => s.activeAmpRoute === "tools-integrations" ? "integrations" : "agent-apps"); // just a default
+    const [localTab, setLocalTab] = useState<TabId>("agent-apps");
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
-    const [authToken, setAuthToken] = useState("ptk_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6");
+    const [authToken, setAuthToken] = useState("");
     const [tokenRevealed, setTokenRevealed] = useState(false);
     const [copiedToken, setCopiedToken] = useState(false);
 
-    const filteredTools = INTEGRATIONS.filter((tool) => {
+    // Store integration tokens in a local dictionary for the inputs
+    const [inputTokens, setInputTokens] = useState<Record<string, string>>({});
+    const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+    const connectedIntegrations = useUIStore((s) => s.connectedIntegrations);
+    const setConnectedIntegrations = useUIStore((s) => s.setConnectedIntegrations);
+    const addConnectedIntegration = useUIStore((s) => s.addConnectedIntegration);
+    const removeConnectedIntegration = useUIStore((s) => s.removeConnectedIntegration);
+
+    // Fetch initial state
+    useEffect(() => {
+        const fetchIntegrations = async () => {
+            try {
+                const res = await fetch("/api/settings/integrations");
+                if (res.ok) {
+                    const data = await res.json();
+
+                    // Extract enterprise auth token if it exists
+                    const enterpriseToken = data.integrations.find((t: any) => t.provider === "enterprise-auth");
+                    if (enterpriseToken) {
+                        setAuthToken(enterpriseToken.token_masked);
+                    }
+
+                    // Extract all connected tools (excluding enterprise-auth)
+                    const connectedProviders = data.integrations
+                        .map((t: any) => t.provider)
+                        .filter((p: string) => p !== "enterprise-auth");
+
+                    setConnectedIntegrations(connectedProviders);
+                }
+            } catch (err) {
+                console.error("Failed to fetch integrations", err);
+            }
+        };
+        fetchIntegrations();
+    }, [setConnectedIntegrations]);
+
+    const filteredTools = INTEGRATIONS.map((tool) => ({
+        ...tool,
+        connected: connectedIntegrations.includes(tool.id)
+    })).filter((tool) => {
         const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             tool.description.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === "All" ||
@@ -183,17 +225,17 @@ export default function ToolsIntegrations() {
                         {TABS.map((tab) => (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => setLocalTab(tab.id)}
                                 className={`
                                     pb-3 text-sm font-medium transition-colors relative
-                                    ${activeTab === tab.id
+                                    ${localTab === tab.id
                                         ? "text-slate-900 dark:text-white"
                                         : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                                     }
                                 `}
                             >
                                 {tab.label}
-                                {activeTab === tab.id && (
+                                {localTab === tab.id && (
                                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500 rounded-full" />
                                 )}
                             </button>
@@ -202,7 +244,7 @@ export default function ToolsIntegrations() {
                 </div>
 
                 {/* ── Tab Content ── */}
-                {activeTab === "agent-apps" && (
+                {localTab === "agent-apps" && (
                     <>
                         {/* Section Header */}
                         <div className="flex items-center gap-3 mb-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-5 py-4">
@@ -296,8 +338,8 @@ export default function ToolsIntegrations() {
                                     <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                                         <button
                                             className={`text-xs font-semibold flex items-center gap-1.5 transition-colors ${tool.connected
-                                                    ? "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
-                                                    : "text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                                                ? "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
+                                                : "text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
                                                 }`}
                                         >
                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -327,17 +369,62 @@ export default function ToolsIntegrations() {
                                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">API Key / OAuth Token</label>
                                                     <input
                                                         type="password"
+                                                        value={inputTokens[tool.id] || ""}
+                                                        onChange={(e) => setInputTokens({ ...inputTokens, [tool.id]: e.target.value })}
                                                         placeholder={`Enter ${tool.name} API key...`}
                                                         className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400"
                                                     />
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button className="px-4 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold rounded-lg transition-colors">
-                                                        Save & Connect
+                                                    <button
+                                                        onClick={async () => {
+                                                            const token = inputTokens[tool.id];
+                                                            if (!token) return;
+                                                            setLoadingAction(`connect-${tool.id}`);
+                                                            try {
+                                                                const res = await fetch("/api/settings/integrations", {
+                                                                    method: "POST",
+                                                                    headers: { "Content-Type": "application/json" },
+                                                                    body: JSON.stringify({ provider: tool.id, token })
+                                                                });
+                                                                if (res.ok) {
+                                                                    addConnectedIntegration(tool.id);
+                                                                    setInputTokens({ ...inputTokens, [tool.id]: "" });
+                                                                    setExpandedCard(null);
+                                                                }
+                                                            } catch (err) {
+                                                                console.error("Failed to connect integration", err);
+                                                            } finally {
+                                                                setLoadingAction(null);
+                                                            }
+                                                        }}
+                                                        disabled={loadingAction === `connect-${tool.id}`}
+                                                        className="px-4 py-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                    >
+                                                        {loadingAction === `connect-${tool.id}` ? "Saving..." : "Save & Connect"}
                                                     </button>
                                                     {tool.connected && (
-                                                        <button className="px-4 py-1.5 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
-                                                            Disconnect
+                                                        <button
+                                                            onClick={async () => {
+                                                                setLoadingAction(`disconnect-${tool.id}`);
+                                                                try {
+                                                                    const res = await fetch(`/api/settings/integrations/${tool.id}`, {
+                                                                        method: "DELETE"
+                                                                    });
+                                                                    if (res.ok) {
+                                                                        removeConnectedIntegration(tool.id);
+                                                                        setExpandedCard(null);
+                                                                    }
+                                                                } catch (err) {
+                                                                    console.error("Failed to disconnect", err);
+                                                                } finally {
+                                                                    setLoadingAction(null);
+                                                                }
+                                                            }}
+                                                            disabled={loadingAction === `disconnect-${tool.id}`}
+                                                            className="px-4 py-1.5 border border-red-200 dark:border-red-800 disabled:opacity-50 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                                        >
+                                                            {loadingAction === `disconnect-${tool.id}` ? "Disconnecting..." : "Disconnect"}
                                                         </button>
                                                     )}
                                                 </div>
@@ -357,7 +444,7 @@ export default function ToolsIntegrations() {
                 )}
 
                 {/* ── Internal Tools Tab ── */}
-                {activeTab === "internal-tools" && (
+                {localTab === "internal-tools" && (
                     <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
                         <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400">
@@ -375,11 +462,40 @@ export default function ToolsIntegrations() {
                 )}
 
                 {/* ── Integrations Tab ── */}
-                {activeTab === "integrations" && (
+                {localTab === "integrations" && (
                     <div className="space-y-6">
                         {/* Auth Token Section */}
                         <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
-                            <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Enterprise Action Auth Token</h3>
+                            <div className="flex items-center justify-between mb-1">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Enterprise Action Auth Token</h3>
+                                <button
+                                    onClick={async () => {
+                                        setLoadingAction("save-enterprise-auth");
+                                        try {
+                                            const res = await fetch("/api/settings/integrations", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ provider: "enterprise-auth", token: authToken })
+                                            });
+                                            if (res.ok) {
+                                                const data = await res.json();
+                                                setAuthToken(data.integration.token_masked);
+                                                // Temporarily show checkmark by mimicking copied Token state
+                                                setCopiedToken(true);
+                                                setTimeout(() => setCopiedToken(false), 2000);
+                                            }
+                                        } catch (err) {
+                                            console.error("Failed to save auth token", err);
+                                        } finally {
+                                            setLoadingAction(null);
+                                        }
+                                    }}
+                                    disabled={loadingAction === "save-enterprise-auth" || !authToken || authToken.includes("•")}
+                                    className="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                                >
+                                    {loadingAction === "save-enterprise-auth" ? "Saving..." : "Save Token"}
+                                </button>
+                            </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Use this token to authenticate agent actions with external services.</p>
                             <div className="flex gap-2">
                                 <div className="flex-1 relative">

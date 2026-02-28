@@ -60,6 +60,14 @@ class LLMConnection(Base):
     api_key_encrypted = Column(String, nullable=False)  # base64 encoded
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class IntegrationToken(Base):
+    __tablename__ = "integration_tokens"
+
+    id = Column(String, primary_key=True)
+    provider = Column(String, nullable=False, unique=True) # e.g., 'github', 'asana', 'enterprise-auth'
+    token_encrypted = Column(String, nullable=False)  # base64 encoded
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class ScheduledFlow(Base):
     __tablename__ = "scheduled_flows"
 
