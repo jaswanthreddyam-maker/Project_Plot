@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, Trash2, ChevronDown, Database, LayoutTemplate, Moon, Sun, AlertTriangle, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, Trash2, ChevronDown, Database, LayoutTemplate, Moon, Sun, AlertTriangle, CheckCircle, Lock } from "lucide-react";
 import { useTheme } from "next-themes";
 import { API_BASE, fetchWithTimeout } from "@/lib/api";
-import SecureVault from "./SecureVault";
+import VaultPinModal from "./VaultPinModal";
 
 interface VaultKey {
     id: string;
@@ -79,6 +79,34 @@ export default function Settings() {
     // Toast State
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+    // Vault Inline States
+    const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
+    const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
+    const [hasPin, setHasPin] = useState(true);
+
+    // Inactivity Timer (5 minutes) for Inline Vault
+    useEffect(() => {
+        if (!isVaultUnlocked) return;
+
+        let timeoutId: NodeJS.Timeout;
+        const resetTimer = () => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                setIsVaultUnlocked(false);
+            }, 5 * 60 * 1000); // 5 minutes
+        };
+
+        window.addEventListener("mousemove", resetTimer);
+        window.addEventListener("keydown", resetTimer);
+        resetTimer();
+
+        return () => {
+            window.removeEventListener("mousemove", resetTimer);
+            window.removeEventListener("keydown", resetTimer);
+            clearTimeout(timeoutId);
+        };
+    }, [isVaultUnlocked]);
+
     useEffect(() => {
         setMounted(true);
         fetchSettingsData();
@@ -98,11 +126,17 @@ export default function Settings() {
                 return;
             }
 
-            const [keysRes, configRes, workspaceRes] = await Promise.all([
+            const [keysRes, configRes, workspaceRes, pinRes] = await Promise.all([
                 fetchWithTimeout(`${API_BASE}/api/vault/list`),
                 fetchWithTimeout(`${API_BASE}/api/config`),
-                fetchWithTimeout(`${API_BASE}/api/workspace/info`).catch(() => null)
+                fetchWithTimeout(`${API_BASE}/api/workspace/info`).catch(() => null),
+                fetchWithTimeout(`${API_BASE}/api/vault/has-pin`).catch(() => null)
             ]);
+
+            if (pinRes && pinRes.ok) {
+                const pinData = await pinRes.json();
+                setHasPin(pinData.has_pin);
+            }
 
             if (keysRes.ok) {
                 const data = await keysRes.json();
@@ -241,7 +275,7 @@ export default function Settings() {
     };
 
     return (
-        <SecureVault>
+        <>
             <div className="flex flex-col h-full w-full p-6 md:p-8 bg-white dark:bg-[#111111] overflow-y-auto">
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -451,6 +485,26 @@ export default function Settings() {
                             </div>
 
                             {/* ── Vault Categories ── */}
+                            {!isVaultUnlocked && (
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-[#111111] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-xl">
+                                            <Lock className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-bold text-black dark:text-white tracking-tight">Vault Locked</h3>
+                                            <p className="text-xs text-gray-500">API keys and secrets are masked. Unlock to edit.</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setIsVaultModalOpen(true)}
+                                        className="shrink-0 px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-xs font-bold shadow-sm outline-none ring-0 hover:opacity-90 transition-opacity"
+                                    >
+                                        {hasPin ? "Unlock Vault to Edit Keys" : "Setup Vault PIN"}
+                                    </button>
+                                </div>
+                            )}
+
                             {CATEGORIES.map(category => (
                                 <div key={category.id} className="relative bg-white dark:bg-[#111111] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm overflow-hidden">
                                     <div className="flex items-center gap-3 mb-6">
@@ -493,48 +547,59 @@ export default function Settings() {
 
                                                     <div className="flex items-center gap-2 relative z-10 w-full group">
                                                         <div className="relative flex-1">
-                                                            <input
-                                                                type={isVisible ? "text" : "password"}
-                                                                value={value}
-                                                                onChange={(e) => handleInputChange(keyName, e.target.value)}
-                                                                placeholder="Paste your key here..."
-                                                                className="w-full bg-white dark:bg-[#000000] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm outline-none ring-0 focus:border-black dark:focus:border-white placeholder:text-gray-400 transition-colors"
-                                                                data-1p-ignore
-                                                            />
-                                                            <button
-                                                                onClick={() => toggleVisibility(keyName)}
-                                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white transition-colors p-1"
-                                                            >
-                                                                {isVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                            </button>
+                                                            {!isVaultUnlocked ? (
+                                                                <div className="w-full flex items-center bg-gray-50 dark:bg-[#161616] border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 h-[46px]">
+                                                                    <span className="text-gray-400 dark:text-gray-500 font-mono tracking-widest text-lg w-full">••••••••••••••••</span>
+                                                                    <Lock size={16} className="text-gray-400 shrink-0" />
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <input
+                                                                        type={isVisible ? "text" : "password"}
+                                                                        value={value}
+                                                                        onChange={(e) => handleInputChange(keyName, e.target.value)}
+                                                                        placeholder="Paste your key here..."
+                                                                        className="w-full bg-white dark:bg-[#000000] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm outline-none ring-0 focus:border-black dark:focus:border-white placeholder:text-gray-400 transition-colors"
+                                                                        data-1p-ignore
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => toggleVisibility(keyName)}
+                                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white transition-colors p-1"
+                                                                    >
+                                                                        {isVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                                    </button>
+                                                                </>
+                                                            )}
                                                         </div>
 
-                                                        <button
-                                                            onClick={() => handleSave(category.id, keyName)}
-                                                            disabled={isSaving || !isNewEdited}
-                                                            className={`shrink-0 w-12 h-11 flex items-center justify-center rounded-2xl border transition-all duration-300 outline-none ring-0
-                                                                ${isSuccess
-                                                                    ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                                                    : isSaving
-                                                                        ? "bg-gray-100 text-gray-400 border-gray-200 dark:bg-[#1A1A1A] dark:border-gray-800 cursor-not-allowed"
-                                                                        : isNewEdited
-                                                                            ? "bg-black text-white hover:bg-gray-900 border-black dark:bg-white dark:text-black dark:hover:bg-gray-100 dark:border-white"
-                                                                            : "bg-gray-100 text-gray-400 border-gray-200 dark:bg-[#1A1A1A] dark:border-gray-800 cursor-not-allowed"
-                                                                }
-                                                            `}
-                                                        >
-                                                            {isSuccess ? (
-                                                                <motion.div
-                                                                    initial={{ scale: 0.5, opacity: 0 }}
-                                                                    animate={{ scale: 1, opacity: 1 }}
-                                                                    className="flex items-center justify-center"
-                                                                >
-                                                                    <ShieldCheck size={18} />
-                                                                </motion.div>
-                                                            ) : (
-                                                                <span className="text-xs font-bold">{isSaving ? "Saving..." : "SAVE"}</span>
-                                                            )}
-                                                        </button>
+                                                        {isVaultUnlocked && (
+                                                            <button
+                                                                onClick={() => handleSave(category.id, keyName)}
+                                                                disabled={isSaving || !isNewEdited}
+                                                                className={`shrink-0 w-12 h-11 flex items-center justify-center rounded-2xl border transition-all duration-300 outline-none ring-0
+                                                                    ${isSuccess
+                                                                        ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
+                                                                        : isSaving
+                                                                            ? "bg-gray-100 text-gray-400 border-gray-200 dark:bg-[#1A1A1A] dark:border-gray-800 cursor-not-allowed"
+                                                                            : isNewEdited
+                                                                                ? "bg-black text-white hover:bg-gray-900 border-black dark:bg-white dark:text-black dark:hover:bg-gray-100 dark:border-white"
+                                                                                : "bg-gray-100 text-gray-400 border-gray-200 dark:bg-[#1A1A1A] dark:border-gray-800 cursor-not-allowed"
+                                                                    }
+                                                                `}
+                                                            >
+                                                                {isSuccess ? (
+                                                                    <motion.div
+                                                                        initial={{ scale: 0.5, opacity: 0 }}
+                                                                        animate={{ scale: 1, opacity: 1 }}
+                                                                        className="flex items-center justify-center"
+                                                                    >
+                                                                        <ShieldCheck size={18} />
+                                                                    </motion.div>
+                                                                ) : (
+                                                                    <span className="text-xs font-bold">{isSaving ? "Saving..." : "SAVE"}</span>
+                                                                )}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -569,7 +634,18 @@ export default function Settings() {
                         </motion.div>
                     )}
                 </AnimatePresence>
+                {/* ── Vault PIN Modal ── */}
+                <VaultPinModal
+                    isOpen={isVaultModalOpen}
+                    onClose={() => setIsVaultModalOpen(false)}
+                    isSettingPin={!hasPin}
+                    onPinSet={() => setHasPin(true)}
+                    onSuccess={() => {
+                        setIsVaultModalOpen(false);
+                        setIsVaultUnlocked(true);
+                    }}
+                />
             </div>
-        </SecureVault>
+        </>
     );
 }

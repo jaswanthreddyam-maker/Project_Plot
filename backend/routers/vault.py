@@ -158,10 +158,13 @@ def verify_vault_pin(req: PinRequest, current_user: str = Depends(get_current_us
         if not config or not config.vault_pin_hash:
             raise HTTPException(status_code=404, detail="No PIN configured.")
             
-        if bcrypt.verify(req.pin, config.vault_pin_hash):
-            return {"unlocked": True}
-        else:
-            raise HTTPException(status_code=401, detail="Invalid PIN.")
+        try:
+            if bcrypt.verify(req.pin, config.vault_pin_hash):
+                return {"unlocked": True}
+            else:
+                raise HTTPException(status_code=400, detail="Incorrect PIN")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Incorrect PIN")
 
 @router.get("/has-pin")
 def has_vault_pin(current_user: str = Depends(get_current_user)):
