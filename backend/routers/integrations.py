@@ -7,8 +7,8 @@ from typing import Optional
 from cryptography.fernet import Fernet
 import requests
 
-from db_config import get_db_session, VaultKey
-from auth import get_current_user
+from backend.db_config import get_db_session, VaultKey
+from backend.auth import get_current_user
 
 router = APIRouter(
     prefix="/api/integrations",

@@ -5,8 +5,8 @@ import uuid
 import datetime
 from sqlalchemy import desc
 
-from db_config import get_db_session, ScheduledFlow
-from auth import get_current_user
+from backend.db_config import get_db_session, ScheduledFlow
+from backend.auth import get_current_user
 
 router = APIRouter(
     prefix="/api/automations",

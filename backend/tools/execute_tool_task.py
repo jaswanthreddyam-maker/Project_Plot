@@ -6,7 +6,7 @@ from celery import shared_task
 from crewai.telemetry import Telemetry
 from pydantic import ValidationError
 
-from db_config import engine, SessionLocal, IntegrationToken
+from backend.db_config import engine, SessionLocal, IntegrationToken
 
 # Connect to Redis for manual PubSub streaming (this allows Celery workers to push data back to FastAPI)
 redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0"))
@@ -79,7 +79,7 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str, use
                 # ── Dynamic API Key Injection ─────────────────────────
                 # ── Dynamic API Key Injection ─────────────────────────
                 from cryptography.fernet import Fernet
-                from db_config import SessionLocal, VaultKey
+                from backend.db_config import SessionLocal, VaultKey
 
                 db_session = SessionLocal()
                 try:
@@ -217,7 +217,7 @@ def poll_schedules(self):
     Polled every minute by Celery Beat.
     Checks the SQLite DB for ScheduledFlow entries and triggers them if it's time.
     """
-    from db_config import SessionLocal, ScheduledFlow
+    from backend.db_config import SessionLocal, ScheduledFlow
     db_session = SessionLocal()
     try:
         flows = db_session.query(ScheduledFlow).all()

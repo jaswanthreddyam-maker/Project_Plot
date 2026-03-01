@@ -19,7 +19,7 @@ import sys
 from os.path import abspath, dirname
 sys.path.insert(0, abspath(dirname(__file__) + "/.."))
 
-from db_config import Base
+from backend.db_config import Base
 
 # add your model's MetaData object here
 # for 'autogenerate' support

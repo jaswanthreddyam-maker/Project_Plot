@@ -8,7 +8,7 @@ import json
 import redis
 import os
 
-from db_config import get_db_session, AgentTrace, SessionLocal, AgentApproval, VaultKey, GlobalConfig
+from backend.db_config import get_db_session, AgentTrace, SessionLocal, AgentApproval, VaultKey, GlobalConfig
 import chromadb
 from chromadb.config import Settings
 from cryptography.fernet import Fernet

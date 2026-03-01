@@ -2,7 +2,7 @@ import uuid
 import os
 import stripe
 from datetime import datetime
-from db_config import UsageLog, GlobalConfig
+from backend.db_config import UsageLog, GlobalConfig
 
 # Current Model Pricing (per 1M tokens) - Estimates as of 2026
 PRICING = {

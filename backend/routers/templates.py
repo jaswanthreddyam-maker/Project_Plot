@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from db_config import get_db_session, Template
-from auth import get_current_user
+from backend.db_config import get_db_session, Template
+from backend.auth import get_current_user
 
 router = APIRouter(
     prefix="/api/templates",

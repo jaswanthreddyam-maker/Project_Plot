@@ -11,8 +11,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 
-from db_config import SessionLocal, LLMConnection, IntegrationToken, EnvVariable
-from auth import get_current_user
+from backend.db_config import SessionLocal, LLMConnection, IntegrationToken, EnvVariable
+from backend.auth import get_current_user
 
 settings_router = APIRouter(prefix="/api/settings", tags=["settings"])
 

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import desc
 import datetime
 import json
-from db_config import get_db_session, AgentTrace
-from auth import get_current_user
+from backend.db_config import get_db_session, AgentTrace
+from backend.auth import get_current_user
 
 router = APIRouter(
     prefix="/api/traces",

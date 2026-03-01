@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 import uuid
 
 # Import Celery App
-from worker import celery_app
+from backend.worker import celery_app
 
 app = FastAPI(title="Plot Autonomous AI Orchestrator")
 
@@ -17,8 +17,9 @@ def health_check():
     return {"status": "ok", "message": "Backend is running and reachable"}
 
 # Register Routers
-from routers.settings import settings_router
-from routers import templates, vault, workspace, automations, traces, integrations, config, billing
+# Register Routers
+from backend.routers.settings import settings_router
+from backend.routers import templates, vault, workspace, automations, traces, integrations, config, billing
 app.include_router(settings_router)
 app.include_router(traces.router)
 app.include_router(integrations.router)
@@ -96,7 +97,7 @@ os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
 class URLUploadRequest(BaseModel):
     url: str
 
-from auth import get_current_user
+from backend.auth import get_current_user
 
 @app.post("/api/knowledge/upload")
 async def upload_knowledge(
@@ -145,7 +146,7 @@ async def schedule_flow_endpoint(req: Request, current_user: str = Depends(get_c
     arguments = payload.get("arguments", {})
     
     import uuid, json
-    from db_config import SessionLocal, ScheduledFlow
+    from backend.db_config import SessionLocal, ScheduledFlow
     db = SessionLocal()
     try:
         new_sch = ScheduledFlow(
@@ -274,7 +275,7 @@ async def get_usage_analytics(current_user: str = Depends(get_current_user)):
     """
     Returns aggregated LLM usage data, cost tracking, and summary stats for the dashboard.
     """
-    from db_config import SessionLocal, UsageLog, AgentTrace, LLMConnection
+    from backend.db_config import SessionLocal, UsageLog, AgentTrace, LLMConnection
     from sqlalchemy import func
     from datetime import datetime, timedelta
     
@@ -343,7 +344,7 @@ class ApprovalResponse(BaseModel):
 @app.post("/api/approval/confirm")
 async def confirm_approval(req: ApprovalResponse, current_user: str = Depends(get_current_user)):
     """Resumes the sensitive tool execution by pushing an 'approved' signal to Redis."""
-    from db_config import SessionLocal, AgentApproval
+    from backend.db_config import SessionLocal, AgentApproval
     db = SessionLocal()
     try:
         approval = db.query(AgentApproval).filter(
@@ -366,7 +367,7 @@ async def confirm_approval(req: ApprovalResponse, current_user: str = Depends(ge
 @app.post("/api/approval/deny")
 async def deny_approval(req: ApprovalResponse, current_user: str = Depends(get_current_user)):
     """Stops the sensitive tool execution by pushing a 'denied' signal to Redis."""
-    from db_config import SessionLocal, AgentApproval
+    from backend.db_config import SessionLocal, AgentApproval
     db = SessionLocal()
     try:
         approval = db.query(AgentApproval).filter(

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
 
-from db_config import get_db_session, WorkspaceMetadata
-from auth import get_current_user
+from backend.db_config import get_db_session, WorkspaceMetadata
+from backend.auth import get_current_user
 
 router = APIRouter(
     prefix="/api/workspace",

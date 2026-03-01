@@ -2,8 +2,8 @@ import os
 import stripe
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
-from auth import get_current_user
-from db_config import SessionLocal, GlobalConfig
+from backend.auth import get_current_user
+from backend.db_config import SessionLocal, GlobalConfig
 from pydantic import BaseModel
 from typing import Optional
 

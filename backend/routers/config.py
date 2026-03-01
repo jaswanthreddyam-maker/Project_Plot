@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from db_config import get_db_session, GlobalConfig
+from backend.db_config import get_db_session, GlobalConfig
 
 router = APIRouter(
     prefix="/api/config",

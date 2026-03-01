@@ -7,8 +7,8 @@ from cryptography.fernet import Fernet
 from typing import List
 from passlib.hash import bcrypt
 
-from db_config import get_db_session, VaultKey, GlobalConfig
-from auth import get_current_user
+from backend.db_config import get_db_session, VaultKey, GlobalConfig
+from backend.auth import get_current_user
 
 router = APIRouter(
     prefix="/api/vault",
