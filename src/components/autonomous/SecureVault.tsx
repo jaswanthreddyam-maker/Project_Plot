@@ -27,9 +27,14 @@ export default function SecureVault({ children }: SecureVaultProps) {
                 if (!data.has_pin) {
                     setIsSettingPin(true);
                 }
+            } else {
+                setHasPin(false);
+                setError("Vault Error: Server returned an invalid response.");
             }
         } catch (err) {
             console.error("Failed to check PIN status", err);
+            setHasPin(false);
+            setError("Network Error: Vault is offline or unreachable.");
         }
     }, []);
 
