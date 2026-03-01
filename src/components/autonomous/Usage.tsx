@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { getSession } from "next-auth/react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, DollarSign, Zap, ShieldCheck, TrendingUp, BarChart3, Users, Wrench } from "lucide-react";
-import { API_BASE, fetchWithTimeout } from "@/lib/api";
+import { API_BASE } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
  * Usage Page — Live Analytics & Cost Tracking
  * ═══════════════════════════════════════════════════════════════ */
 
-interface UsageData {
+interface UsageMetrics {
     summary: {
         total_cost: number;
         total_agents: number;
@@ -34,25 +36,77 @@ const SkeletonLoader = () => (
 );
 
 export function UsagePage() {
-    const [data, setData] = useState<UsageData | null>(null);
+    const router = useRouter();
+    const [metrics, setMetrics] = useState<UsageMetrics>({
+        summary: {
+            total_cost: 0,
+            total_agents: 0,
+            total_tools: 0,
+            success_rate: 0,
+            total_runs: 0
+        },
+        token_chart: [],
+        task_chart: []
+    });
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [offlineError, setOfflineError] = useState(false);
 
     const fetchUsage = useCallback(async () => {
+        setOfflineError(false);
         try {
-            const res = await fetchWithTimeout(`${API_BASE}/api/analytics/usage`);
-            if (res.ok) {
-                const json = await res.json();
-                setData(json);
-            } else {
-                setError("Failed to fetch analytics.");
+            // Explicitly retrieve token
+            let token = "";
+            const session = await getSession();
+            if (session && session.user && session.user.id) {
+                token = session.user.id;
+            } else if (typeof window !== "undefined") {
+                token = localStorage.getItem("token") || "";
             }
+
+            const res = await fetch(`${API_BASE}/api/analytics/usage`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            if (res.status === 401) {
+                router.push("/login");
+                return;
+            }
+
+            if (!res.ok) {
+                if (res.status === 500) {
+                    setOfflineError(true);
+                }
+                // If 404 or other errors, we gracefully fail and stick with the default 0 metrics
+                setLoading(false);
+                return;
+            }
+
+            const json = await res.json();
+
+            // Soft-merge the incoming data with our default bulletproof state
+            setMetrics({
+                summary: {
+                    total_cost: json?.summary?.total_cost || 0,
+                    total_agents: json?.summary?.total_agents || 0,
+                    total_tools: json?.summary?.total_tools || 0,
+                    success_rate: json?.summary?.success_rate || 0,
+                    total_runs: json?.summary?.total_runs || 0
+                },
+                token_chart: json?.token_chart || [],
+                task_chart: json?.task_chart || []
+            });
+
         } catch (err) {
-            setError("Network error connecting to analytics engine.");
+            console.error(err);
+            setOfflineError(true); // Actual network connection failure
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [router]);
 
     useEffect(() => {
         fetchUsage();
@@ -68,7 +122,7 @@ export function UsagePage() {
         );
     }
 
-    if (error || !data) {
+    if (offlineError) {
         return (
             <div className="flex-1 flex items-center justify-center p-8 text-center bg-white dark:bg-[#111111]">
                 <div className="max-w-sm">
@@ -76,8 +130,8 @@ export function UsagePage() {
                         <Activity size={32} />
                     </div>
                     <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Analytics Offline</h3>
-                    <p className="text-sm text-slate-500 mb-6">{error || "No data available."}</p>
-                    <button onClick={fetchUsage} className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold">Try Again</button>
+                    <p className="text-sm text-slate-500 mb-6">Network error connecting to analytics engine.</p>
+                    <button onClick={() => { setLoading(true); fetchUsage(); }} className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold">Try Again</button>
                 </div>
             </div>
         );
@@ -108,7 +162,7 @@ export function UsagePage() {
                             <p className="text-xs font-black uppercase tracking-widest font-mono">Total Spend</p>
                             <DollarSign size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
-                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">${data?.summary?.total_cost?.toFixed(2) || "0.00"}</h3>
+                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">${metrics?.summary?.total_cost?.toFixed(2) || "0.00"}</h3>
                         <p className="text-[10px] text-slate-400 mt-3 font-mono uppercase tracking-widest">USD (Estimated Cost)</p>
                     </motion.div>
 
@@ -117,7 +171,7 @@ export function UsagePage() {
                             <p className="text-xs font-black uppercase tracking-widest font-mono">Active Agents</p>
                             <Users size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
-                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data?.summary?.total_agents || 0}</h3>
+                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{metrics?.summary?.total_agents || 0}</h3>
                         <p className="text-[10px] text-slate-400 mt-3 font-mono uppercase tracking-widest">Across Current User</p>
                     </motion.div>
 
@@ -126,7 +180,7 @@ export function UsagePage() {
                             <p className="text-xs font-black uppercase tracking-widest font-mono">Success Rate</p>
                             <TrendingUp size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
-                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data?.summary?.success_rate || 0}%</h3>
+                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{metrics?.summary?.success_rate || 0}%</h3>
                         <p className="text-[10px] text-slate-400 mt-3 font-mono uppercase tracking-widest">Execution Health</p>
                     </motion.div>
 
@@ -135,7 +189,7 @@ export function UsagePage() {
                             <p className="text-xs font-black uppercase tracking-widest font-mono">Tool Count</p>
                             <Wrench size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
-                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data?.summary?.total_tools || 0}</h3>
+                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{metrics?.summary?.total_tools || 0}</h3>
                         <p className="text-[10px] text-slate-400 mt-3 font-mono uppercase tracking-widest">Nango Integrations</p>
                     </motion.div>
                 </div>
@@ -156,7 +210,7 @@ export function UsagePage() {
                     </div>
                     <div className="h-96 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={data?.token_chart || []}>
+                            <AreaChart data={metrics?.token_chart || []}>
                                 <defs>
                                     <linearGradient id="tokenGradient" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#000" stopOpacity={0.1} />
@@ -175,6 +229,7 @@ export function UsagePage() {
                                     tickLine={false}
                                     axisLine={false}
                                     tickFormatter={(str) => {
+                                        if (!str) return "";
                                         const date = new Date(str);
                                         return date.toLocaleDateString('en-US', { weekday: 'short' });
                                     }}
