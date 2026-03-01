@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, DollarSign, Zap, ShieldCheck, TrendingUp, BarChart3, Users, Wrench } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
  * Usage Page — Live Analytics & Cost Tracking
@@ -40,7 +40,7 @@ export function UsagePage() {
 
     const fetchUsage = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/analytics/usage`);
+            const res = await fetchWithTimeout(`${API_BASE}/api/analytics/usage`);
             if (res.ok) {
                 const json = await res.json();
                 setData(json);

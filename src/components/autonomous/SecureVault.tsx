@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, ShieldCheck, ArrowRight, ShieldAlert, KeyRound } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout } from "@/lib/api";
 
 interface SecureVaultProps {
     children: React.ReactNode;
@@ -20,7 +20,7 @@ export default function SecureVault({ children }: SecureVaultProps) {
 
     const checkHasPin = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/vault/has-pin`);
+            const res = await fetchWithTimeout(`${API_BASE}/api/vault/has-pin`);
             if (res.ok) {
                 const data = await res.json();
                 setHasPin(data.has_pin);
@@ -65,7 +65,7 @@ export default function SecureVault({ children }: SecureVaultProps) {
         setLoading(true);
         setError("");
         try {
-            const res = await fetch(`${API_BASE}/api/vault/verify-pin`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/vault/verify-pin`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ pin })
@@ -98,7 +98,7 @@ export default function SecureVault({ children }: SecureVaultProps) {
         setLoading(true);
         setError("");
         try {
-            const res = await fetch(`${API_BASE}/api/vault/set-pin`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/vault/set-pin`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ pin })
