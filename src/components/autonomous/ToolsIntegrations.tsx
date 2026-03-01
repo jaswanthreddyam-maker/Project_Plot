@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useUIStore } from "@/store/uiStore";
 import { API_BASE } from "@/lib/api";
+import IntegrationModal from "./IntegrationModal";
+import Nango from "@nangohq/frontend";
 
 /* ═══════════════════════════════════════════════════════════════
  * Tools & Integrations — Enterprise-grade integrations dashboard
@@ -144,6 +146,8 @@ export default function ToolsIntegrations() {
     const [authToken, setAuthToken] = useState("");
     const [tokenRevealed, setTokenRevealed] = useState(false);
     const [copiedToken, setCopiedToken] = useState(false);
+    const [selectedTool, setSelectedTool] = useState<IntegrationTool | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Store integration tokens in a local dictionary for the inputs
     const [inputTokens, setInputTokens] = useState<Record<string, string>>({});
@@ -186,11 +190,10 @@ export default function ToolsIntegrations() {
                         setAuthToken(enterpriseToken.masked_value);
                     }
 
-                    // Extract all connected DEV categorised tools
+                    // Extract all connected OAUTH or DEV tools
                     const connectedProviders = data
-                        .filter((t: any) => t.category === "DEV")
-                        .map((t: any) => getTokenId(t.key_name))
-                        .filter((p: string) => p !== "enterprise-auth");
+                        .filter((t: any) => t.category === "DEV" || t.category === "OAUTH")
+                        .map((t: any) => getTokenId(t.key_name));
 
                     setConnectedIntegrations(connectedProviders);
                 }
@@ -219,6 +222,39 @@ export default function ToolsIntegrations() {
             setCopiedToken(true);
             setTimeout(() => setCopiedToken(false), 2000);
         } catch { /* noop */ }
+    };
+
+    const handleConnectClick = (tool: IntegrationTool) => {
+        setSelectedTool(tool);
+        setIsModalOpen(true);
+    };
+
+    const triggerNangoAuth = async () => {
+        if (!selectedTool) return;
+
+        const nango = new Nango({ publicKey: process.env.NEXT_PUBLIC_NANGO_PUBLIC_KEY || "your-public-key" });
+        const connectionId = `plot-user-${selectedTool.id}-primary`;
+
+        try {
+            await nango.auth(selectedTool.id, connectionId);
+
+            // Callback to backend
+            const res = await fetch(`${API_BASE}/api/integrations/callback`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    provider_config_key: selectedTool.id,
+                    connection_id: connectionId
+                })
+            });
+
+            if (res.ok) {
+                addConnectedIntegration(selectedTool.id);
+                setIsModalOpen(false);
+            }
+        } catch (err) {
+            console.error("Nango Auth Failed", err);
+        }
     };
 
     return (
@@ -357,6 +393,7 @@ export default function ToolsIntegrations() {
                                     {/* Card Footer */}
                                     <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                                         <button
+                                            onClick={() => handleConnectClick(tool)}
                                             className={`text-xs font-semibold flex items-center gap-1.5 transition-colors ${tool.connected
                                                 ? "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
                                                 : "text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -385,55 +422,23 @@ export default function ToolsIntegrations() {
                                     {expandedCard === tool.id && (
                                         <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
                                             <div className="space-y-3">
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">API Key / OAuth Token</label>
-                                                    <input
-                                                        type="password"
-                                                        value={inputTokens[tool.id] || ""}
-                                                        onChange={(e) => setInputTokens({ ...inputTokens, [tool.id]: e.target.value })}
-                                                        placeholder={`Enter ${tool.name} API key...`}
-                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400"
-                                                    />
+                                                <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs leading-relaxed text-slate-500">
+                                                    This tool is managed via Nango. Disconnecting will remove all access tokens from your vault.
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button
-                                                        onClick={async () => {
-                                                            const token = inputTokens[tool.id];
-                                                            if (!token) return;
-                                                            setLoadingAction(`connect-${tool.id}`);
-                                                            try {
-                                                                const res = await fetch(`${API_BASE}/api/vault/save`, {
-                                                                    method: "POST",
-                                                                    headers: { "Content-Type": "application/json" },
-                                                                    body: JSON.stringify({
-                                                                        key_name: getKeyName(tool.id),
-                                                                        value: token,
-                                                                        category: "DEV"
-                                                                    })
-                                                                });
-                                                                if (res.ok) {
-                                                                    addConnectedIntegration(tool.id);
-                                                                    setInputTokens({ ...inputTokens, [tool.id]: "" });
-                                                                    setExpandedCard(null);
-                                                                }
-                                                            } catch (err) {
-                                                                console.error("Failed to connect integration", err);
-                                                            } finally {
-                                                                setLoadingAction(null);
-                                                            }
-                                                        }}
-                                                        disabled={loadingAction === `connect-${tool.id}`}
-                                                        className="px-4 py-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors"
-                                                    >
-                                                        {loadingAction === `connect-${tool.id}` ? "Saving..." : "Save & Connect"}
-                                                    </button>
                                                     {tool.connected && (
                                                         <button
                                                             onClick={async () => {
                                                                 setLoadingAction(`disconnect-${tool.id}`);
+                                                                const connectionId = `plot-user-${tool.id}-primary`;
                                                                 try {
-                                                                    const res = await fetch(`${API_BASE}/api/vault/delete/${getKeyName(tool.id)}`, {
-                                                                        method: "DELETE"
+                                                                    const res = await fetch(`${API_BASE}/api/integrations/disconnect`, {
+                                                                        method: "POST",
+                                                                        headers: { "Content-Type": "application/json" },
+                                                                        body: JSON.stringify({
+                                                                            provider_config_key: tool.id,
+                                                                            connection_id: connectionId
+                                                                        })
                                                                     });
                                                                     if (res.ok) {
                                                                         removeConnectedIntegration(tool.id);
@@ -446,9 +451,9 @@ export default function ToolsIntegrations() {
                                                                 }
                                                             }}
                                                             disabled={loadingAction === `disconnect-${tool.id}`}
-                                                            className="px-4 py-1.5 border border-red-200 dark:border-red-800 disabled:opacity-50 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                                            className="w-full px-4 py-1.5 border border-red-200 dark:border-red-800 disabled:opacity-50 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                                                         >
-                                                            {loadingAction === `disconnect-${tool.id}` ? "Disconnecting..." : "Disconnect"}
+                                                            {loadingAction === `disconnect-${tool.id}` ? "Disconnecting..." : "Disconnect Integration"}
                                                         </button>
                                                     )}
                                                 </div>
@@ -569,6 +574,13 @@ export default function ToolsIntegrations() {
                     </div>
                 )}
             </div>
+
+            <IntegrationModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                tool={selectedTool}
+                onConnect={triggerNangoAuth}
+            />
         </div>
     );
 }

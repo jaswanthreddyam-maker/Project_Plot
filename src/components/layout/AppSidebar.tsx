@@ -124,7 +124,7 @@ const NAV_SECTIONS: NavSection[] = [
             },
             {
                 id: "billing",
-                label: "Billing (Soon)",
+                label: "Billing",
                 icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />

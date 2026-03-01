@@ -19,9 +19,10 @@ SENSITIVE_TOOLS = ["Delete", "Shell", "FileWrite", "GitHub", "Asana", "Jira", "G
 
 class HITLToolWrapper:
     """Wraps a CrewAI tool to intercept execution if it's in the sensitive list."""
-    def __init__(self, tool, execution_id):
+    def __init__(self, tool, execution_id, user_id):
         self.tool = tool
         self.execution_id = execution_id
+        self.user_id = user_id
         self.name = getattr(tool, 'name', 'Unknown Tool')
         self.description = getattr(tool, 'description', '')
         self.args_schema = getattr(tool, 'args_schema', None)
@@ -37,6 +38,7 @@ class HITLToolWrapper:
             try:
                 new_approval = AgentApproval(
                     id=approval_id,
+                    user_id=self.user_id,
                     execution_id=self.execution_id,
                     tool_name=self.name,
                     arguments=json.dumps({"args": args, "kwargs": kwargs}),
@@ -82,6 +84,7 @@ class PlotState(BaseModel):
     final_output: str = ""
     knowledge_sources: list = []
     execution_id: str = ""
+    user_id: str = ""
     agents_config: list = []
     tasks_config: list = []
     agent_tools_map: dict = {} # Map of agent_id to tool list
@@ -106,13 +109,19 @@ class PlotAutonomousFlow(Flow[PlotState]):
         # --- RAG / Key Setup ---
         db = SessionLocal()
         try:
-            # Fetch global config
-            global_config = db.query(GlobalConfig).first()
+            # Fetch global config for the user
+            global_config = db.query(GlobalConfig).filter(GlobalConfig.user_id == self.state.user_id).first()
             if not global_config:
-                global_config = GlobalConfig(id="singleton", default_model="gpt-4o", temperature=0.7, memory_enabled=True)
+                global_config = GlobalConfig(
+                    id=str(uuid.uuid4()), 
+                    user_id=self.state.user_id,
+                    default_model="gpt-4o", 
+                    temperature=0.7, 
+                    memory_enabled=True
+                )
                 
-            # Fetch all vault keys to inject explicitly
-            vault_keys = db.query(VaultKey).all()
+            # Fetch user-specific vault keys
+            vault_keys = db.query(VaultKey).filter(VaultKey.user_id == self.state.user_id).all()
             
             master_key = os.environ.get("VAULT_MASTER_KEY")
             if not master_key:
@@ -167,7 +176,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
             # Fetch and wrap tools for this agent
             agent_id = ac.get("id", "")
             raw_tools = self.state.agent_tools_map.get(agent_id, [])
-            wrapped_tools = [HITLToolWrapper(t, self.state.execution_id) for t in raw_tools]
+            wrapped_tools = [HITLToolWrapper(t, self.state.execution_id, self.state.user_id) for t in raw_tools]
             
             agent = Agent(
                 role=ac.get("role", "Assistant"),
@@ -212,6 +221,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
                     import uuid
                     new_trace = AgentTrace(
                         id=str(uuid.uuid4()),
+                        user_id=self.state.user_id,
                         execution_id=self.state.execution_id,
                         agent_role="Crew Agent", 
                         task_description="Agent execution step",
@@ -335,7 +345,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
                 
                 import utils.metrics as metrics
                 with get_db_session() as ds:
-                    metrics.log_usage(ds, self.state.execution_id, model_used, prompt_tokens, completion_tokens, status=status_val)
+                    metrics.log_usage(ds, self.state.execution_id, self.state.user_id, model_used, prompt_tokens, completion_tokens, status=status_val)
             except Exception as usage_err:
                 print(f"[Usage Tracking Error] {usage_err}")
 

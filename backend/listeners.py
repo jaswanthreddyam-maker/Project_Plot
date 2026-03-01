@@ -8,7 +8,8 @@ class PlotEventListener(BaseEventListener):
     """
     Listens to internal CrewAI events and streams them via Redis Pub/Sub to the FastAPI SSE endpoint.
     """
-    def __init__(self, execution_id: str):
+    def __init__(self, execution_id: str, user_id: str):
+        self.user_id = user_id
         self.stream_channel = f"stream:{execution_id}"
         self.redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0"))
         super().__init__()

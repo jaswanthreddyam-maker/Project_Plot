@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import desc
 import datetime
 import json
 from db_config import get_db_session, AgentTrace
+from auth import get_current_user
 
 router = APIRouter(
     prefix="/api/traces",
@@ -10,7 +11,7 @@ router = APIRouter(
 )
 
 @router.get("")
-def get_all_traces():
+def get_all_traces(current_user: str = Depends(get_current_user)):
     """Fetches a list of all distinct execution runs recently stored."""
     with get_db_session() as db:
         # Get all traces but we just want to group them by execution_id for the list view
@@ -19,7 +20,8 @@ def get_all_traces():
             AgentTrace.execution_id,
             AgentTrace.status,
             AgentTrace.timestamp
-        ).order_by(desc(AgentTrace.timestamp)).all()
+        ).filter(AgentTrace.user_id == current_user)\
+         .order_by(desc(AgentTrace.timestamp)).all()
 
         # Deduplicate to show only the latest status per execution_id
         seen = set()
@@ -43,11 +45,12 @@ def get_all_traces():
         return unique_runs
 
 @router.get("/{execution_id}")
-def get_trace_details(execution_id: str):
+def get_trace_details(execution_id: str, current_user: str = Depends(get_current_user)):
     """Fetches the step-by-step logs for a specific execution."""
     with get_db_session() as db:
         traces = db.query(AgentTrace).filter(
-            AgentTrace.execution_id == execution_id
+            AgentTrace.execution_id == execution_id,
+            AgentTrace.user_id == current_user
         ).order_by(AgentTrace.timestamp).all()
         
         if not traces and execution_id == "demo-exec-001":

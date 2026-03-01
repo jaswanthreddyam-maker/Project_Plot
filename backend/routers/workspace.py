@@ -1,9 +1,9 @@
-import uuid
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
 
 from db_config import get_db_session, WorkspaceMetadata
+from auth import get_current_user
 
 router = APIRouter(
     prefix="/api/workspace",
@@ -18,13 +18,15 @@ class WorkspaceResponse(BaseModel):
     instance_id: str
 
 @router.get("/info", response_model=WorkspaceResponse)
-def get_workspace_info():
+def get_workspace_info(current_user: str = Depends(get_current_user)):
     """Returns the current workspace metadata."""
     with get_db_session() as db:
-        workspace = db.query(WorkspaceMetadata).first()
+        workspace = db.query(WorkspaceMetadata).filter(WorkspaceMetadata.user_id == current_user).first()
         if not workspace:
+            import uuid
             workspace = WorkspaceMetadata(
-                id="singleton", 
+                id=str(uuid.uuid4()), 
+                user_id=current_user,
                 app_name="PlotAI Workspace", 
                 instance_id=str(uuid.uuid4())
             )
@@ -38,13 +40,15 @@ def get_workspace_info():
         )
 
 @router.post("/update")
-def update_workspace_info(req: WorkspaceUpdateRequest):
+def update_workspace_info(req: WorkspaceUpdateRequest, current_user: str = Depends(get_current_user)):
     """Updates the workspace metadata."""
     with get_db_session() as db:
-        workspace = db.query(WorkspaceMetadata).first()
+        workspace = db.query(WorkspaceMetadata).filter(WorkspaceMetadata.user_id == current_user).first()
         if not workspace:
+            import uuid
             workspace = WorkspaceMetadata(
-                id="singleton", 
+                id=str(uuid.uuid4()), 
+                user_id=current_user,
                 app_name="PlotAI Workspace", 
                 instance_id=str(uuid.uuid4())
             )

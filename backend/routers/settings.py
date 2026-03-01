@@ -7,11 +7,12 @@ Keys are stored base64-encoded in SQLite (use a proper secrets manager in produc
 import uuid
 import base64
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 
 from db_config import SessionLocal, LLMConnection, IntegrationToken, EnvVariable
+from auth import get_current_user
 
 settings_router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -75,18 +76,20 @@ def to_response(conn: LLMConnection) -> dict:
 
 # ── Endpoints ──────────────────────────────────────────────────
 @settings_router.get("/llm-connections")
-def get_connections():
+def get_connections(current_user: str = Depends(get_current_user)):
     """Return all LLM connections with masked API keys."""
     session = SessionLocal()
     try:
-        connections = session.query(LLMConnection).order_by(LLMConnection.created_at.desc()).all()
+        connections = session.query(LLMConnection).filter(
+            LLMConnection.user_id == current_user
+        ).order_by(LLMConnection.created_at.desc()).all()
         return {"connections": [to_response(c) for c in connections]}
     finally:
         session.close()
 
 
 @settings_router.post("/llm-connections")
-def create_connection(req: CreateConnectionRequest):
+def create_connection(req: CreateConnectionRequest, current_user: str = Depends(get_current_user)):
     """Store a new LLM connection (API key base64-encoded)."""
     if not req.api_key.strip():
         raise HTTPException(status_code=400, detail="API key is required.")
@@ -95,6 +98,7 @@ def create_connection(req: CreateConnectionRequest):
     try:
         conn = LLMConnection(
             id=str(uuid.uuid4()),
+            user_id=current_user,
             provider=req.provider.lower().strip(),
             alias=req.alias or f"{req.provider}-default",
             api_key_encrypted=base64.b64encode(req.api_key.encode("utf-8")).decode("utf-8"),
@@ -109,11 +113,14 @@ def create_connection(req: CreateConnectionRequest):
 
 
 @settings_router.delete("/llm-connections/{connection_id}")
-def delete_connection(connection_id: str):
+def delete_connection(connection_id: str, current_user: str = Depends(get_current_user)):
     """Delete an LLM connection by ID."""
     session = SessionLocal()
     try:
-        conn = session.query(LLMConnection).filter_by(id=connection_id).first()
+        conn = session.query(LLMConnection).filter(
+            LLMConnection.id == connection_id,
+            LLMConnection.user_id == current_user
+        ).first()
         if not conn:
             raise HTTPException(status_code=404, detail="Connection not found.")
         session.delete(conn)
@@ -124,11 +131,13 @@ def delete_connection(connection_id: str):
 
 
 @settings_router.get("/integrations")
-def get_integrations():
+def get_integrations(current_user: str = Depends(get_current_user)):
     """Return all connected integration tokens with masked keys."""
     session = SessionLocal()
     try:
-        tokens = session.query(IntegrationToken).order_by(IntegrationToken.created_at.desc()).all()
+        tokens = session.query(IntegrationToken).filter(
+            IntegrationToken.user_id == current_user
+        ).order_by(IntegrationToken.created_at.desc()).all()
         return {
             "integrations": [
                 {
@@ -145,7 +154,7 @@ def get_integrations():
 
 
 @settings_router.post("/integrations")
-def save_integration(req: IntegrationTokenRequest):
+def save_integration(req: IntegrationTokenRequest, current_user: str = Depends(get_current_user)):
     """Store or update a third-party integration token."""
     if not req.token.strip():
         raise HTTPException(status_code=400, detail="Token is required.")
@@ -153,7 +162,10 @@ def save_integration(req: IntegrationTokenRequest):
     session = SessionLocal()
     try:
         provider = req.provider.lower().strip()
-        conn = session.query(IntegrationToken).filter_by(provider=provider).first()
+        conn = session.query(IntegrationToken).filter(
+            IntegrationToken.provider == provider,
+            IntegrationToken.user_id == current_user
+        ).first()
         
         encoded_token = base64.b64encode(req.token.encode("utf-8")).decode("utf-8")
         
@@ -163,6 +175,7 @@ def save_integration(req: IntegrationTokenRequest):
         else:
             conn = IntegrationToken(
                 id=str(uuid.uuid4()),
+                user_id=current_user,
                 provider=provider,
                 token_encrypted=encoded_token,
                 created_at=datetime.utcnow(),
@@ -184,11 +197,14 @@ def save_integration(req: IntegrationTokenRequest):
 
 
 @settings_router.delete("/integrations/{provider}")
-def delete_integration(provider: str):
+def delete_integration(provider: str, current_user: str = Depends(get_current_user)):
     """Delete an integration token by provider name."""
     session = SessionLocal()
     try:
-        conn = session.query(IntegrationToken).filter_by(provider=provider.lower()).first()
+        conn = session.query(IntegrationToken).filter(
+            IntegrationToken.provider == provider.lower(),
+            IntegrationToken.user_id == current_user
+        ).first()
         if not conn:
             raise HTTPException(status_code=404, detail="Integration not found.")
         session.delete(conn)
@@ -200,11 +216,13 @@ def delete_integration(provider: str):
 # ── Environment Variables ────────────────────────────────────────
 
 @settings_router.get("/env")
-def get_env_variables():
+def get_env_variables(current_user: str = Depends(get_current_user)):
     """Return all environment variables with masked values."""
     session = SessionLocal()
     try:
-        envs = session.query(EnvVariable).order_by(EnvVariable.created_at.desc()).all()
+        envs = session.query(EnvVariable).filter(
+            EnvVariable.user_id == current_user
+        ).order_by(EnvVariable.created_at.desc()).all()
         return {
             "variables": [
                 {
@@ -220,7 +238,7 @@ def get_env_variables():
         session.close()
 
 @settings_router.post("/env")
-def save_env_variable(req: EnvVariableRequest):
+def save_env_variable(req: EnvVariableRequest, current_user: str = Depends(get_current_user)):
     """Store or update a global environment variable."""
     if not req.key.strip() or not req.value.strip():
         raise HTTPException(status_code=400, detail="Key and value are required.")
@@ -228,7 +246,10 @@ def save_env_variable(req: EnvVariableRequest):
     session = SessionLocal()
     try:
         key = req.key.strip()
-        env_var = session.query(EnvVariable).filter_by(key=key).first()
+        env_var = session.query(EnvVariable).filter(
+            EnvVariable.key == key,
+            EnvVariable.user_id == current_user
+        ).first()
         
         encoded_value = base64.b64encode(req.value.encode("utf-8")).decode("utf-8")
         
@@ -238,6 +259,7 @@ def save_env_variable(req: EnvVariableRequest):
         else:
             env_var = EnvVariable(
                 id=str(uuid.uuid4()),
+                user_id=current_user,
                 key=key,
                 value_encrypted=encoded_value,
                 created_at=datetime.utcnow(),
@@ -258,11 +280,14 @@ def save_env_variable(req: EnvVariableRequest):
         session.close()
 
 @settings_router.delete("/env/{key}")
-def delete_env_variable(key: str):
+def delete_env_variable(key: str, current_user: str = Depends(get_current_user)):
     """Delete an environment variable by key."""
     session = SessionLocal()
     try:
-        env_var = session.query(EnvVariable).filter_by(key=key).first()
+        env_var = session.query(EnvVariable).filter(
+            EnvVariable.key == key,
+            EnvVariable.user_id == current_user
+        ).first()
         if not env_var:
             raise HTTPException(status_code=404, detail="Environment variable not found.")
         session.delete(env_var)

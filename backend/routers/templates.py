@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from db_config import get_db_session, Template
+from auth import get_current_user
 
 router = APIRouter(
     prefix="/api/templates",
@@ -27,15 +28,18 @@ class SaveTemplateRequest(BaseModel):
     workflow_config: Dict[str, Any]
 
 @router.get("", response_model=List[TemplateResponse])
-def get_all_templates():
+def get_all_templates(current_user: str = Depends(get_current_user)):
     with get_db_session() as db:
-        templates = db.query(Template).all()
+        templates = db.query(Template).filter(Template.user_id == current_user).all()
         return templates
 
 @router.post("/save")
-def save_template(req: SaveTemplateRequest):
+def save_template(req: SaveTemplateRequest, current_user: str = Depends(get_current_user)):
     with get_db_session() as db:
-        existing = db.query(Template).filter(Template.name == req.name).first()
+        existing = db.query(Template).filter(
+            Template.name == req.name,
+            Template.user_id == current_user
+        ).first()
         if existing:
             existing.description = req.description
             existing.icon_name = req.icon_name
@@ -44,6 +48,7 @@ def save_template(req: SaveTemplateRequest):
             db.add(existing)
         else:
             new_template = Template(
+                user_id=current_user,
                 name=req.name,
                 description=req.description,
                 icon_name=req.icon_name,
@@ -56,7 +61,7 @@ def save_template(req: SaveTemplateRequest):
         return {"status": "success", "message": f"Template '{req.name}' saved."}
 
 @router.post("/seed")
-def seed_default_templates():
+def seed_default_templates(current_user: str = Depends(get_current_user)):
     default_templates = [
         {
             "name": "Viral Thread Creator",
@@ -141,9 +146,13 @@ def seed_default_templates():
     with get_db_session() as db:
         inserted = 0
         for t in default_templates:
-            existing = db.query(Template).filter(Template.name == t["name"]).first()
+            existing = db.query(Template).filter(
+                Template.name == t["name"],
+                Template.user_id == current_user
+            ).first()
             if not existing:
                 new_template = Template(
+                    user_id=current_user,
                     name=t["name"],
                     description=t["description"],
                     icon_name=t["icon_name"],

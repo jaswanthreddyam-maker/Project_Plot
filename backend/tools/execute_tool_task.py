@@ -15,7 +15,7 @@ redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis:/
 # from flows.sample_flow import SampleFlow
 
 @shared_task(name="tools.execute_tool_task.run_agent_tool", bind=True)
-def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
+def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str, user_id: str):
     """
     Core execution logic triggered by Celery.
     This orchestrates the CrewAI kickoff and streams events back via Redis Pub/Sub.
@@ -40,7 +40,7 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
             from listeners import PlotEventListener
             
             # Setup Event Listener
-            listener = PlotEventListener(execution_id=execution_id)
+            listener = PlotEventListener(execution_id=execution_id, user_id=user_id)
             
             # Extract inputs
             objective = arguments.get("objective", "Unknown objective")
@@ -88,7 +88,10 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str):
                         fernet = Fernet(master_key.encode())
                         # Only put SEARCH and DEV keys into os.environ for tools (CrewAI tools rely on env vars)
                         # LLM keys are safely injected straight into the LLM constructor in autonomous_flow.py
-                        vault_keys = db_session.query(VaultKey).filter(VaultKey.category.in_(["SEARCH", "DEV"])).all()
+                        vault_keys = db_session.query(VaultKey).filter(
+                            VaultKey.category.in_(["SEARCH", "DEV"]),
+                            VaultKey.user_id == user_id
+                        ).all()
                         for vk in vault_keys:
                             try:
                                 decoded_val = fernet.decrypt(vk.encrypted_value.encode()).decode("utf-8")
@@ -203,10 +206,10 @@ import uuid
 import datetime
 
 @shared_task(name="tools.execute_tool_task.scheduled_flow_kickoff", bind=True)
-def scheduled_flow_kickoff(self, payload: dict):
+def scheduled_flow_kickoff(self, payload: dict, user_id: str):
     # Wrapper to instantiate and run PlotAutonomousFlow directly
     execution_id = f"sch-{str(uuid.uuid4())[:8]}"
-    run_agent_tool("PlotAutonomous", payload, execution_id)
+    run_agent_tool("PlotAutonomous", payload, execution_id, user_id)
 
 @shared_task(name="tools.execute_tool_task.poll_schedules", bind=True)
 def poll_schedules(self):
@@ -231,7 +234,7 @@ def poll_schedules(self):
                 
             if trigger:
                 payload = json.loads(f.payload)
-                scheduled_flow_kickoff.delay(payload)
+                scheduled_flow_kickoff.delay(payload, f.user_id)
                 
     finally:
         db_session.close()

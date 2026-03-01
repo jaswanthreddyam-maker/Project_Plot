@@ -11,3 +11,8 @@ SQLAlchemy
 python-dotenv
 chromadb
 cryptography
+alembic
+passlib[bcrypt]
+stripe
+python-jose[cryptography]
+python-multipart

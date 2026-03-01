@@ -15,33 +15,18 @@ app = FastAPI(title="Plot Autonomous AI Orchestrator")
 def health_check():
     return {"status": "ok", "message": "Backend is running and reachable"}
 
-# Register Settings Router
+# Register Routers
 from routers.settings import settings_router
+from routers import templates, vault, workspace, automations, traces, integrations, config, billing
 app.include_router(settings_router)
-
-# Register Traces Router
-from routers.traces import router as traces_router
-app.include_router(traces_router)
-
-# Register Automations Router
-from routers.automations import router as automations_router
-app.include_router(automations_router)
-
-# Register Vault Router
-from routers.vault import router as vault_router
-app.include_router(vault_router)
-
-# Register Config Router
-from routers.config import router as config_router
-app.include_router(config_router)
-
-# Register Workspace Router
-from routers.workspace import router as workspace_router
-app.include_router(workspace_router)
-
-# Register Templates Router
-from routers.templates import router as templates_router
-app.include_router(templates_router)
+app.include_router(traces.router)
+app.include_router(integrations.router)
+app.include_router(automations.router)
+app.include_router(vault.router)
+app.include_router(config.router)
+app.include_router(workspace.router)
+app.include_router(templates.router)
+app.include_router(billing.router)
 
 
 # Allow Next.js frontend to talk to FastAPI
@@ -108,8 +93,14 @@ os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
 class URLUploadRequest(BaseModel):
     url: str
 
+from auth import get_current_user
+
 @app.post("/api/knowledge/upload")
-async def upload_knowledge(file: Optional[UploadFile] = File(None), url: Optional[str] = Form(None)):
+async def upload_knowledge(
+    file: Optional[UploadFile] = File(None), 
+    url: Optional[str] = Form(None),
+    current_user: str = Depends(get_current_user)
+):
     """
     Accepts PDF/TXT file uploads or URLs and saves them to the local ./knowledge directory for RAG.
     """
@@ -125,24 +116,24 @@ async def upload_knowledge(file: Optional[UploadFile] = File(None), url: Optiona
     raise HTTPException(status_code=400, detail="Must provide either a file or a url")
 
 @app.post("/api/tools/execute", status_code=202)
-async def execute_tool(req: ToolExecutionRequest):
+async def execute_tool(req: ToolExecutionRequest, current_user: str = Depends(get_current_user)):
     """
     Kicks off a background CrewAI execution via Celery.
     Returns 202 Accepted and a task_id immediately.
     """
     execution_id = req.execution_id or str(uuid.uuid4())
     
-    # Send the task to the Celery queue
+    # Send the task to the Celery queue (passing user_id)
     task = celery_app.send_task(
         "tools.execute_tool_task.run_agent_tool", 
-        args=[req.tool_name, req.arguments, execution_id],
+        args=[req.tool_name, req.arguments, execution_id, current_user],
         task_id=execution_id
     )
     
     return {"message": "Execution started", "task_id": task.id, "execution_id": execution_id}
 
 @app.post("/api/tools/schedule", status_code=201)
-async def schedule_flow_endpoint(req: Request):
+async def schedule_flow_endpoint(req: Request, current_user: str = Depends(get_current_user)):
     """
     Saves the cron configuration to the database for Celery Beat polling.
     """
@@ -156,6 +147,7 @@ async def schedule_flow_endpoint(req: Request):
     try:
         new_sch = ScheduledFlow(
             id=str(uuid.uuid4()),
+            user_id=current_user,
             cron_schedule=interval,
             payload=json.dumps(arguments)
         )
@@ -264,7 +256,7 @@ class ResumeRequest(BaseModel):
     feedback: str
 
 @app.post("/api/resume")
-async def resume_execution(req: ResumeRequest):
+async def resume_execution(req: ResumeRequest, current_user: str = Depends(get_current_user)):
     """
     Webhook for Asynchronous HITL execution resuming
     """
@@ -275,7 +267,7 @@ async def resume_execution(req: ResumeRequest):
     
     return {"status": "ok", "message": "Feedback submitted to flow"}
 @app.get("/api/analytics/usage")
-async def get_usage_analytics():
+async def get_usage_analytics(current_user: str = Depends(get_current_user)):
     """
     Returns aggregated LLM usage data, cost tracking, and summary stats for the dashboard.
     """
@@ -286,13 +278,18 @@ async def get_usage_analytics():
     db = SessionLocal()
     try:
         # 1. Summary Stats
-        total_cost = db.query(func.sum(UsageLog.total_cost)).scalar() or 0
-        total_agents = db.query(func.count(LLMConnection.id)).scalar() or 0 # Fallback: could also count distinct model names
-        # Better: use a distinct count if LLMConnection isn't just about agents
+        total_cost = db.query(func.sum(UsageLog.total_cost)).filter(UsageLog.user_id == current_user).scalar() or 0
+        total_agents = db.query(func.count(LLMConnection.id)).filter(LLMConnection.user_id == current_user).scalar() or 0
         
         # 2. Success vs Failed
-        success_count = db.query(func.count(UsageLog.id)).filter(UsageLog.status == "success").scalar() or 0
-        failed_count = db.query(func.count(UsageLog.id)).filter(UsageLog.status == "failed").scalar() or 0
+        success_count = db.query(func.count(UsageLog.id)).filter(
+            UsageLog.status == "success",
+            UsageLog.user_id == current_user
+        ).scalar() or 0
+        failed_count = db.query(func.count(UsageLog.id)).filter(
+            UsageLog.status == "failed",
+            UsageLog.user_id == current_user
+        ).scalar() or 0
         total_runs = success_count + failed_count
         success_rate = (success_count / total_runs * 100) if total_runs > 0 else 0
         
@@ -302,7 +299,7 @@ async def get_usage_analytics():
             func.date(UsageLog.timestamp).label('day'),
             func.sum(UsageLog.prompt_tokens).label('prompt'),
             func.sum(UsageLog.completion_tokens).label('completion')
-        ).filter(UsageLog.timestamp >= seven_days_ago)\
+        ).filter(UsageLog.timestamp >= seven_days_ago, UsageLog.user_id == current_user)\
          .group_by(func.date(UsageLog.timestamp))\
          .order_by(func.date(UsageLog.timestamp)).all()
          
@@ -317,7 +314,7 @@ async def get_usage_analytics():
         task_throughput = db.query(
             func.date(AgentTrace.timestamp).label('day'),
             func.count(AgentTrace.id).label('count')
-        ).filter(AgentTrace.timestamp >= seven_days_ago)\
+        ).filter(AgentTrace.timestamp >= seven_days_ago, AgentTrace.user_id == current_user)\
          .group_by(func.date(AgentTrace.timestamp))\
          .order_by(func.date(AgentTrace.timestamp)).all()
          
@@ -341,7 +338,7 @@ class ApprovalResponse(BaseModel):
     execution_id: str
 
 @app.post("/api/approval/confirm")
-async def confirm_approval(req: ApprovalResponse):
+async def confirm_approval(req: ApprovalResponse, current_user: str = Depends(get_current_user)):
     """Resumes the sensitive tool execution by pushing an 'approved' signal to Redis."""
     from db_config import SessionLocal, AgentApproval
     db = SessionLocal()
@@ -364,7 +361,7 @@ async def confirm_approval(req: ApprovalResponse):
     raise HTTPException(status_code=404, detail="Pending approval not found")
 
 @app.post("/api/approval/deny")
-async def deny_approval(req: ApprovalResponse):
+async def deny_approval(req: ApprovalResponse, current_user: str = Depends(get_current_user)):
     """Stops the sensitive tool execution by pushing a 'denied' signal to Redis."""
     from db_config import SessionLocal, AgentApproval
     db = SessionLocal()

@@ -29,10 +29,11 @@ import Automations from "@/components/autonomous/Automations";
 import EnvVariables from "@/components/autonomous/EnvVariables";
 import Settings from "@/components/autonomous/Settings";
 import Templates from "@/components/autonomous/Templates";
+import AgentsRepository from "@/components/autonomous/AgentsRepository";
 import { UsagePage } from "@/components/autonomous/Usage";
+import { BillingPage } from "@/components/autonomous/Billing";
 import {
     AutomationsPage as AutomationsPlaceholder,
-    BillingPage,
     SettingsPage,
     ToolsIntegrationsPage
 } from "@/components/layout/PlaceholderPages";
@@ -201,8 +202,9 @@ export default function WorkspacePage() {
     const renderRouteContent = () => {
         switch (activeAmpRoute) {
             case "agents-repository":
-                return <CrewStudio />;
+                return <AgentsRepository />;
             case "templates":
+
                 return <Templates />;
             case "llm-connections":
             case "environment-variables":
@@ -216,6 +218,8 @@ export default function WorkspacePage() {
                 return <Traces />;
             case "usage":
                 return <UsagePage />;
+            case "billing":
+                return <BillingPage />;
             case "crew-studio":
             default:
                 return renderCrewStudio();

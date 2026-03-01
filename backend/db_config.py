@@ -54,6 +54,7 @@ class LLMConnection(Base):
     __tablename__ = "llm_connections"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     provider = Column(String, nullable=False)
     alias = Column(String, nullable=True)
     api_key_encrypted = Column(String, nullable=False)  # base64 encoded
@@ -63,6 +64,7 @@ class IntegrationToken(Base):
     __tablename__ = "integration_tokens"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     provider = Column(String, nullable=False, unique=True) # e.g., 'github', 'asana', 'enterprise-auth'
     token_encrypted = Column(String, nullable=False)  # base64 encoded
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -71,6 +73,7 @@ class ScheduledFlow(Base):
     __tablename__ = "scheduled_flows"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     crew_name = Column(String, nullable=False, default="Autonomous Flow")
     cron_schedule = Column(String, nullable=False) # e.g. '0 9 * * *' or preset string
     payload = Column(String, nullable=False) # Store the JSON arguments
@@ -81,6 +84,7 @@ class AgentTrace(Base):
     __tablename__ = "agent_traces"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     execution_id = Column(String, nullable=False, index=True)
     agent_role = Column(String, nullable=True)
     task_description = Column(String, nullable=True)
@@ -92,6 +96,7 @@ class EnvVariable(Base):
     __tablename__ = "env_variables"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     key = Column(String, nullable=False, unique=True)
     value_encrypted = Column(String, nullable=False) # Base64 encoded for now
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -100,6 +105,7 @@ class UsageLog(Base):
     __tablename__ = "usage_logs"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     execution_id = Column(String, nullable=False, index=True)
     model = Column(String, nullable=False)
     prompt_tokens = Column(String, default="0") # Stored as string to avoid overflows if huge
@@ -112,6 +118,7 @@ class AgentApproval(Base):
     __tablename__ = "agent_approvals"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     execution_id = Column(String, nullable=False, index=True)
     tool_name = Column(String, nullable=False)
     arguments = Column(String, nullable=True) # JSON
@@ -123,6 +130,7 @@ class VaultKey(Base):
     __tablename__ = "vault_keys"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     key_name = Column(String, nullable=False, unique=True, index=True)
     encrypted_value = Column(String, nullable=False)
     category = Column(String, nullable=False) # e.g., 'LLM', 'SEARCH', 'DEV'
@@ -133,15 +141,21 @@ class GlobalConfig(Base):
     __tablename__ = "global_configs"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     default_model = Column(String, default="gpt-4o")
     temperature = Column(Float, default=0.7)
     memory_enabled = Column(Boolean, default=True)
+    vault_pin_hash = Column(String, nullable=True)
+    stripe_customer_id = Column(String, nullable=True)
+    stripe_subscription_item_id = Column(String, nullable=True)
+    subscription_status = Column(String, default="none")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class WorkspaceMetadata(Base):
     __tablename__ = "workspace_metadata"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=True)
     app_name = Column(String, default="PlotAI Workspace")
     instance_id = Column(String, unique=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -150,6 +164,7 @@ class Template(Base):
     __tablename__ = "templates"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True, nullable=True)
     name = Column(String, unique=True, nullable=False)
     description = Column(String, nullable=True)
     icon_name = Column(String, nullable=True)
