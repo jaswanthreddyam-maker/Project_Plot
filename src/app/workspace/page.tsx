@@ -221,6 +221,7 @@ export default function WorkspacePage() {
             case "billing":
                 return <BillingPage />;
             case "crew-studio":
+                return <CrewStudio />;
             default:
                 return renderCrewStudio();
         }
