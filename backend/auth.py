@@ -22,6 +22,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # ── Dev Fallback: Native NextAuth User IDs ──
+    # If the token from the frontend does not look like a serialized JWT (no dots),
+    # assume it's the bridged NextAuth User ID directly.
+    if "." not in token:
+        return token
+        
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")

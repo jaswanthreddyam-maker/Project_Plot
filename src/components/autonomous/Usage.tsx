@@ -108,7 +108,7 @@ export function UsagePage() {
                             <p className="text-xs font-black uppercase tracking-widest font-mono">Total Spend</p>
                             <DollarSign size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
-                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">${data.summary.total_cost.toFixed(2)}</h3>
+                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">${data?.summary?.total_cost?.toFixed(2) || "0.00"}</h3>
                         <p className="text-[10px] text-slate-400 mt-3 font-mono uppercase tracking-widest">USD (Estimated Cost)</p>
                     </motion.div>
 
@@ -117,7 +117,7 @@ export function UsagePage() {
                             <p className="text-xs font-black uppercase tracking-widest font-mono">Active Agents</p>
                             <Users size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
-                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data.summary.total_agents}</h3>
+                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data?.summary?.total_agents || 0}</h3>
                         <p className="text-[10px] text-slate-400 mt-3 font-mono uppercase tracking-widest">Across Current User</p>
                     </motion.div>
 
@@ -126,7 +126,7 @@ export function UsagePage() {
                             <p className="text-xs font-black uppercase tracking-widest font-mono">Success Rate</p>
                             <TrendingUp size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
-                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data.summary.success_rate}%</h3>
+                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data?.summary?.success_rate || 0}%</h3>
                         <p className="text-[10px] text-slate-400 mt-3 font-mono uppercase tracking-widest">Execution Health</p>
                     </motion.div>
 
@@ -135,7 +135,7 @@ export function UsagePage() {
                             <p className="text-xs font-black uppercase tracking-widest font-mono">Tool Count</p>
                             <Wrench size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
-                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data.summary.total_tools}</h3>
+                        <h3 className="text-4xl font-black text-black dark:text-white tracking-tighter">{data?.summary?.total_tools || 0}</h3>
                         <p className="text-[10px] text-slate-400 mt-3 font-mono uppercase tracking-widest">Nango Integrations</p>
                     </motion.div>
                 </div>
@@ -156,7 +156,7 @@ export function UsagePage() {
                     </div>
                     <div className="h-96 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={data.token_chart}>
+                            <AreaChart data={data?.token_chart || []}>
                                 <defs>
                                     <linearGradient id="tokenGradient" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#000" stopOpacity={0.1} />

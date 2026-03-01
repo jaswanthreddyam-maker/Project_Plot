@@ -31,13 +31,13 @@ app.include_router(billing.router)
 
 # Allow Next.js frontend to talk to FastAPI
 origins = [
-    "*",
+    os.environ.get("FRONTEND_URL", "http://localhost:3000"),
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

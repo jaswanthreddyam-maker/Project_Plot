@@ -106,24 +106,28 @@ export default function Settings() {
 
             if (keysRes.ok) {
                 const data = await keysRes.json();
-                setVaultKeys(data);
+                setVaultKeys(data && Array.isArray(data) ? data : []);
 
                 const initialInputs: Record<string, string> = {};
-                data.forEach((k: VaultKey) => {
-                    initialInputs[k.key_name] = k.masked_value;
-                });
+                if (data && Array.isArray(data)) {
+                    data.forEach((k: VaultKey) => {
+                        initialInputs[k.key_name] = k.masked_value;
+                    });
+                }
                 setInputValues(initialInputs);
             }
 
             if (configRes && configRes.ok) {
                 const configData = await configRes.json();
-                setGlobalConfig(configData);
+                if (configData) setGlobalConfig(configData);
             }
 
             if (workspaceRes && workspaceRes.ok) {
                 const wsData = await workspaceRes.json();
-                setWorkspaceInfo(wsData);
-                setAppNameInput(wsData.app_name);
+                if (wsData) {
+                    setWorkspaceInfo(wsData);
+                    setAppNameInput(wsData.app_name || "");
+                }
             }
         } catch (error) {
             console.error("Failed to fetch settings data:", error);
