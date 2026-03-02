@@ -45,11 +45,32 @@ export async function POST(req: Request) {
         formData.append("username", normalizedEmail);
         formData.append("password", password); // FastAPI ignores this, but requires it for OAuth2
 
-        const apiRes = await fetch(`${fastapiUrl}/api/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: formData,
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        let apiRes: Response;
+        try {
+            apiRes = await fetch(`${fastapiUrl}/api/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData,
+                signal: controller.signal,
+                cache: "no-store",
+            });
+        } catch (error) {
+            if (error instanceof Error && error.name === "AbortError") {
+                return NextResponse.json(
+                    { detail: "Backend login request timed out" },
+                    { status: 504 }
+                );
+            }
+            console.error("FastAPI Login Request Error:", error);
+            return NextResponse.json(
+                { detail: "Failed to reach backend login service" },
+                { status: 502 }
+            );
+        } finally {
+            clearTimeout(timeoutId);
+        }
 
         if (!apiRes.ok) {
             console.error("FastAPI Login Failed:", await apiRes.text());
