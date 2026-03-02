@@ -19,6 +19,17 @@ if (!nextAuthSecret) {
 }
 
 const authOptions: NextAuthConfig = {
+    cookies: {
+        pkceCodeVerifier: {
+            name: 'next-auth.pkce.code_verifier',
+            options: {
+                httpOnly: true,
+                sameSite: 'none',
+                path: '/',
+                secure: true,
+            },
+        },
+    },
     secret: nextAuthSecret,
     trustHost: true,
     debug: process.env.NODE_ENV === "development",
