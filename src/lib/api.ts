@@ -4,13 +4,17 @@ import type { ApiErrorPayload } from "@/types/api";
 /**
  * Centralized API configuration.
  * Uses NEXT_PUBLIC_API_URL when provided.
- * In local dev, force 127.0.0.1 to avoid localhost/IPv6 mismatches
+ * In local dev, defaults to 127.0.0.1 to avoid localhost/IPv6 mismatches
  * when backend is bound to 127.0.0.1.
+ * In production, no localhost fallback is used.
  */
 function resolveApiBase(): string {
-    const configured = process.env.NEXT_PUBLIC_API_URL;
-    if (configured) return configured;
-    return "http://127.0.0.1:8000";
+    const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+    if (configured) {
+        return configured.replace(/\/+$/, "");
+    }
+
+    return "";
 }
 
 export const API_BASE = resolveApiBase();
@@ -32,7 +36,9 @@ function resolveRequestUrl(input: RequestInfo | URL): string {
 function isApiRequest(url: string): boolean {
     if (url.startsWith("/api/")) return true;
     if (url === "/api") return true;
-    if (url.startsWith(`${API_BASE}/api/`) || url === `${API_BASE}/api`) return true;
+    if (API_BASE && (url.startsWith(`${API_BASE}/api/`) || url === `${API_BASE}/api`)) {
+        return true;
+    }
 
     if (typeof window !== "undefined") {
         const sameOriginApiPrefix = `${window.location.origin}/api/`;
@@ -107,23 +113,27 @@ export function initializeApiInterceptors(): void {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
         const requestUrl = resolveRequestUrl(input);
+
+        // 🚀 FIX: Bypass interceptor for NextAuth internal calls so it doesn't hang!
+        const isNextAuthRoute = requestUrl.includes("/api/auth/signin") || requestUrl.includes("/api/auth/callback") || requestUrl.includes("/api/auth/csrf") || requestUrl.includes("/api/auth/providers") || requestUrl.includes("/api/auth/session");
+        if (isNextAuthRoute) {
+            return nativeFetch(input, init);
+        }
+
         const targetIsApi = isApiRequest(requestUrl);
         const prepared = withAuthHeader(input, init);
 
         try {
             const response = await nativeFetch(prepared.input, prepared.init);
-
             if (targetIsApi && (response.status === 502 || response.status === 503)) {
                 markBackendOffline();
             } else if (targetIsApi) {
                 clearBackendOffline();
             }
-
             if (response.status === 401 && typeof window !== "undefined") {
                 localStorage.removeItem("plot_auth_token");
                 window.location.href = "/login";
             }
-
             return response;
         } catch (error: unknown) {
             const errorName = getErrorName(error);
@@ -133,7 +143,6 @@ export function initializeApiInterceptors(): void {
             throw error;
         }
     };
-
     globalFetchInterceptorsInitialized = true;
 }
 
@@ -149,8 +158,18 @@ export async function fetchWithTimeout(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    // 🚀 FIX: Automatically route Python backend calls to Ngrok/Cloud URL
+    let finalUrl = typeof resource === "string" ? resource : resource instanceof URL ? resource.toString() : resource.url;
+
+    const isNextAuthRoute = finalUrl.includes("/api/auth/signin") || finalUrl.includes("/api/auth/callback") || finalUrl.includes("/api/auth/csrf") || finalUrl.includes("/api/auth/providers") || finalUrl.includes("/api/auth/session");
+
+    // If it's a backend call (like /api/auth/google for python) add the API_BASE
+    if (finalUrl.startsWith("/api/") && !isNextAuthRoute && API_BASE) {
+        finalUrl = `${API_BASE}${finalUrl}`;
+    }
+
     try {
-        const response = await fetch(resource, {
+        const response = await fetch(finalUrl, {
             ...rest,
             signal: controller.signal,
         });
@@ -168,7 +187,6 @@ export async function fetchWithTimeout(
             markBackendOffline("Backend Offline: Request timed out.");
             throw new Error(`Request timed out after ${timeout}ms`);
         }
-
         if (errorName === "TypeError") {
             markBackendOffline();
         }
