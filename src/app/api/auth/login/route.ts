@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+function resolveFastApiBase(): string {
+    const configured = process.env.API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim();
+    if (configured) {
+        return configured.replace(/\/+$/, "");
+    }
+
+    throw new Error("Missing API_URL (or NEXT_PUBLIC_API_URL) for FastAPI backend");
+}
+
 export async function POST(req: Request) {
     try {
         const body = await req.text();
@@ -39,7 +48,16 @@ export async function POST(req: Request) {
         }
 
         // 2. Fetch JWT token from FastAPI backend to maintain existing API authorization
-        const fastapiUrl = process.env.API_URL || "http://127.0.0.1:8000";
+        let fastapiUrl: string;
+        try {
+            fastapiUrl = resolveFastApiBase();
+        } catch (error) {
+            console.error("[Auth Login Config Error]", error);
+            return NextResponse.json(
+                { detail: "Backend auth service URL is not configured" },
+                { status: 500 }
+            );
+        }
 
         const formData = new URLSearchParams();
         formData.append("username", normalizedEmail);

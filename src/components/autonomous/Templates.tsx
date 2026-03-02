@@ -208,7 +208,7 @@ export default function Templates() {
                 ) : loadError ? (
                     <div className="w-full py-20 flex flex-col items-center gap-3 text-center">
                         <p className="text-sm font-semibold text-red-600">{loadError}</p>
-                        <p className="text-xs text-slate-500">Make sure backend is running on `http://localhost:8000` and you are logged in.</p>
+                        <p className="text-xs text-slate-500">Make sure the backend is running and `NEXT_PUBLIC_API_URL` points to it.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
