@@ -319,7 +319,7 @@ function LoginPageContent() {
                         type="button"
                         onClick={() => void handleGoogleSignIn()}
                         disabled={loading}
-                        className="group w-full rounded-md py-2 flex items-center justify-center gap-2 text-black bg-white border border-gray-300 hover:bg-black hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="group w-full bg-white text-black border border-gray-300 py-2 px-4 rounded-md transition-all duration-300 flex items-center justify-center gap-2 font-medium hover:bg-black hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <GoogleIcon />
                         Continue with Google
