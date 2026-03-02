@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import * as LucideIcons from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TemplateModel {
@@ -29,6 +29,7 @@ export default function Templates() {
 
     const [templates, setTemplates] = useState<TemplateModel[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const [selectedTemplate, setSelectedTemplate] = useState<TemplateModel | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -46,12 +47,27 @@ export default function Templates() {
     useEffect(() => {
         const fetchTemplates = async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/templates`);
+                setLoadError(null);
+                const res = await fetchWithTimeout(`${API_BASE}/api/templates`, {
+                    timeout: 10000
+                });
                 if (res.ok) {
                     const data = await res.json();
                     setTemplates(data);
+                } else {
+                    let detail = `HTTP ${res.status}`;
+                    try {
+                        const errData = await res.json();
+                        detail = errData.detail || errData.message || detail;
+                    } catch {
+                        const text = await res.text().catch(() => "");
+                        if (text) detail = text;
+                    }
+                    setLoadError(`Failed to fetch templates: ${detail}`);
                 }
             } catch (err) {
+                const message = err instanceof Error ? err.message : "Unknown error";
+                setLoadError(`Failed to fetch templates: ${message}`);
                 console.error("Failed to fetch templates", err);
             } finally {
                 setIsLoading(false);
@@ -69,11 +85,16 @@ export default function Templates() {
     // Fetch Vault Keys
     const fetchVaultKeys = async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/vault/list`);
+            const res = await fetchWithTimeout(`${API_BASE}/api/vault/list`, {
+                timeout: 10000
+            });
             if (res.ok) {
                 const data = await res.json();
                 setVaultKeys(data);
                 return data;
+            } else {
+                const text = await res.text().catch(() => "");
+                console.error("Failed to fetch vault", res.status, text);
             }
         } catch (err) {
             console.error("Failed to fetch vault", err);
@@ -121,10 +142,11 @@ export default function Templates() {
         };
 
         try {
-            const res = await fetch(`${API_BASE}/api/vault/save`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/vault/save`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                timeout: 10000,
             });
 
             if (res.ok) {
@@ -185,6 +207,11 @@ export default function Templates() {
             <div className="flex-1 w-full max-w-5xl px-8 pb-12 overflow-y-auto scrollbar-thin">
                 {isLoading ? (
                     <div className="w-full py-20 flex justify-center text-slate-500 font-medium">Loading workflows...</div>
+                ) : loadError ? (
+                    <div className="w-full py-20 flex flex-col items-center gap-3 text-center">
+                        <p className="text-sm font-semibold text-red-600">{loadError}</p>
+                        <p className="text-xs text-slate-500">Make sure backend is running on `http://localhost:8000` and you are logged in.</p>
+                    </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
                         {templates.map(template => {
@@ -304,9 +331,13 @@ export default function Templates() {
                                                     <div className="flex gap-2">
                                                         <input
                                                             type="password"
+                                                            name={`${reqKey}-template-key`}
                                                             placeholder={`Enter ${reqKey.toUpperCase()} API Key`}
                                                             value={inputValues[reqKey] || ""}
                                                             onChange={e => setInputValues({ ...inputValues, [reqKey]: e.target.value })}
+                                                            autoComplete="new-password"
+                                                            data-lpignore="true"
+                                                            data-1p-ignore
                                                             className="flex-1 bg-white border border-red-200 rounded-lg px-3 py-2 text-sm text-black outline-none ring-0 placeholder:text-slate-400 focus:border-red-400"
                                                         />
                                                         <button

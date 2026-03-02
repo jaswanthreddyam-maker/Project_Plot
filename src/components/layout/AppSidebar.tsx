@@ -1,9 +1,11 @@
 "use client";
 
-import { useUIStore, AmpRoute, AgentConfig, TaskConfig } from "@/store/uiStore";
-import { API_BASE } from "@/lib/api";
+import { useUIStore, AmpRoute } from "@/store/uiStore";
+import { API_BASE, fetchWithTimeout } from "@/lib/api";
+import { AMP_ROUTE_PATHS, ampRouteFromPathname } from "@/lib/workspaceRoutes";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Trash2, LayoutTemplate } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -147,10 +149,11 @@ const NAV_SECTIONS: NavSection[] = [
 ];
 
 export default function AppSidebar() {
+    const router = useRouter();
+    const pathname = usePathname();
     const activeAmpRoute = useUIStore((s) => s.activeAmpRoute);
     const setActiveAmpRoute = useUIStore((s) => s.setActiveAmpRoute);
     const { theme, setTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
     const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
 
     // ── Crew Config from store (merged from AgentDashboard left panel) ──
@@ -165,11 +168,17 @@ export default function AppSidebar() {
     const activeProviders = useUIStore((s) => s.activeProviders);
 
     useEffect(() => {
-        setMounted(true);
-        fetch(`${API_BASE}/api/workspace/info`)
+        fetchWithTimeout(`${API_BASE}/api/workspace/info`)
             .then(res => { if (res.ok) setIsWorkspaceReady(true); })
             .catch(err => console.error("Workspace init failed:", err));
     }, []);
+
+    useEffect(() => {
+        const routeFromPath = ampRouteFromPathname(pathname);
+        if (routeFromPath && routeFromPath !== activeAmpRoute) {
+            setActiveAmpRoute(routeFromPath);
+        }
+    }, [pathname, activeAmpRoute, setActiveAmpRoute]);
 
     // Show crew config section when on agents-repository route
     const showCrewConfig = activeAmpRoute === "agents-repository";
@@ -235,7 +244,12 @@ export default function AppSidebar() {
                                     <button
                                         key={item.id}
                                         onClick={() => {
-                                            if (!showSoonLabel) setActiveAmpRoute(item.id);
+                                            if (showSoonLabel) return;
+                                            setActiveAmpRoute(item.id);
+                                            const targetPath = AMP_ROUTE_PATHS[item.id];
+                                            if (targetPath !== pathname) {
+                                                router.push(targetPath);
+                                            }
                                         }}
                                         className={`
                                             w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150
@@ -351,13 +365,12 @@ export default function AppSidebar() {
             <div className="px-3 py-2 border-t border-slate-200 dark:border-slate-800">
                 <button
                     onClick={() => {
-                        if (!mounted) return;
                         setTheme(theme === "dark" ? "light" : "dark");
                     }}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
                     suppressHydrationWarning
                 >
-                    {mounted && theme === "dark" ? (
+                    {theme === "dark" ? (
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="12" cy="12" r="5" />
                             <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
@@ -370,7 +383,7 @@ export default function AppSidebar() {
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                         </svg>
                     )}
-                    {mounted ? (theme === "dark" ? "Light Mode" : "Dark Mode") : "Theme"}
+                    {theme === "dark" ? "Light Mode" : "Dark Mode"}
                 </button>
             </div>
 

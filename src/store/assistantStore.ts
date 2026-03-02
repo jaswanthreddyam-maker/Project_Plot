@@ -1,39 +1,24 @@
-/**
- * ════════════════════════════════════════════════════════════════
- * Zustand AI Assistant Store — Isolated State Domain
- * ════════════════════════════════════════════════════════════════
- *
- * Completely decoupled from chatStore and uiStore.
- * Manages:
- *   - Chat overlay visibility
- *   - AI conversation history
- *   - FIFO command queue for UI automation
- *   - Processing locks to prevent race conditions
- *   - Streaming state
- *   - Telemetry session binding
- *
- * Uses Immer middleware for deep immutable updates and
- * subscribeWithSelector for granular re-render control.
- */
-
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { subscribeWithSelector } from "zustand/middleware";
 import type { AIMessage, AutomationCommand } from "@/app/lib/schema";
 
-// ── State Interface ──────────────────────────────────────────
+type AssistantSurface = "chat" | "modal" | null;
+
 export interface AssistantState {
-    // UI
     isAssistantActive: boolean;
+    assistantSurface: AssistantSurface;
     toggleAssistant: () => void;
     setAssistantActive: (active: boolean) => void;
+    openAssistantChat: () => void;
+    openAssistantModal: () => void;
+    closeAssistant: () => void;
 
-    // Chat History
     chatHistory: AIMessage[];
     addMessage: (msg: AIMessage) => void;
+    updateMessageContent: (messageId: string, content: string) => void;
     clearHistory: () => void;
 
-    // Command Queue (FIFO)
     commandQueue: AutomationCommand[];
     isProcessingCommand: boolean;
     enqueueCommand: (cmd: AutomationCommand) => void;
@@ -42,36 +27,60 @@ export interface AssistantState {
     setProcessing: (processing: boolean) => void;
     clearCommandQueue: () => void;
 
-    // Streaming
     isStreaming: boolean;
     setStreaming: (streaming: boolean) => void;
 
-    // Telemetry
     telemetrySessionId: string;
     resetTelemetrySession: () => void;
 
-    // Feedback
     submitFeedback: (messageId: string, type: "positive" | "negative") => void;
 }
 
-// ── Store Creation ───────────────────────────────────────────
 export const useAssistantStore = create<AssistantState>()(
     subscribeWithSelector(
         immer((set, get) => ({
-            // ── UI ───────────────────────────────────────────
             isAssistantActive: false,
+            assistantSurface: null,
 
             toggleAssistant: () =>
                 set((state) => {
-                    state.isAssistantActive = !state.isAssistantActive;
+                    if (state.isAssistantActive) {
+                        state.isAssistantActive = false;
+                        state.assistantSurface = null;
+                    } else {
+                        state.isAssistantActive = true;
+                        state.assistantSurface = "chat";
+                    }
                 }),
 
             setAssistantActive: (active: boolean) =>
                 set((state) => {
                     state.isAssistantActive = active;
+                    if (!active) {
+                        state.assistantSurface = null;
+                    } else if (state.assistantSurface === null) {
+                        state.assistantSurface = "chat";
+                    }
                 }),
 
-            // ── Chat History ─────────────────────────────────
+            openAssistantChat: () =>
+                set((state) => {
+                    state.isAssistantActive = true;
+                    state.assistantSurface = "chat";
+                }),
+
+            openAssistantModal: () =>
+                set((state) => {
+                    state.isAssistantActive = true;
+                    state.assistantSurface = "modal";
+                }),
+
+            closeAssistant: () =>
+                set((state) => {
+                    state.isAssistantActive = false;
+                    state.assistantSurface = null;
+                }),
+
             chatHistory: [],
 
             addMessage: (msg: AIMessage) =>
@@ -79,12 +88,19 @@ export const useAssistantStore = create<AssistantState>()(
                     state.chatHistory.push(msg);
                 }),
 
+            updateMessageContent: (messageId: string, content: string) =>
+                set((state) => {
+                    const message = state.chatHistory.find((msg) => msg.id === messageId);
+                    if (message) {
+                        message.content = content;
+                    }
+                }),
+
             clearHistory: () =>
                 set((state) => {
                     state.chatHistory = [];
                 }),
 
-            // ── Command Queue ────────────────────────────────
             commandQueue: [],
             isProcessingCommand: false,
 
@@ -99,9 +115,9 @@ export const useAssistantStore = create<AssistantState>()(
                 }),
 
             dequeueCommand: () => {
-                const current = get().commandQueue;
-                if (current.length === 0) return undefined;
-                const first = current[0];
+                const currentQueue = get().commandQueue;
+                if (currentQueue.length === 0) return undefined;
+                const first = currentQueue[0];
                 set((state) => {
                     state.commandQueue.splice(0, 1);
                 });
@@ -119,7 +135,6 @@ export const useAssistantStore = create<AssistantState>()(
                     state.isProcessingCommand = false;
                 }),
 
-            // ── Streaming ────────────────────────────────────
             isStreaming: false,
 
             setStreaming: (streaming: boolean) =>
@@ -127,7 +142,6 @@ export const useAssistantStore = create<AssistantState>()(
                     state.isStreaming = streaming;
                 }),
 
-            // ── Telemetry ────────────────────────────────────
             telemetrySessionId: crypto.randomUUID(),
 
             resetTelemetrySession: () =>
@@ -135,12 +149,9 @@ export const useAssistantStore = create<AssistantState>()(
                     state.telemetrySessionId = crypto.randomUUID();
                 }),
 
-            // ── Feedback ─────────────────────────────────────
             submitFeedback: (messageId: string, type: "positive" | "negative") =>
                 set((state) => {
-                    const message = state.chatHistory.find(
-                        (msg) => msg.id === messageId
-                    );
+                    const message = state.chatHistory.find((msg) => msg.id === messageId);
                     if (message) {
                         message.feedback = type;
                     }
@@ -149,8 +160,6 @@ export const useAssistantStore = create<AssistantState>()(
     )
 );
 
-// ── Selectors ────────────────────────────────────────────────
-// Granular selectors to prevent unnecessary re-renders.
 export const selectIsAssistantActive = (s: AssistantState) => s.isAssistantActive;
 export const selectChatHistory = (s: AssistantState) => s.chatHistory;
 export const selectCommandQueue = (s: AssistantState) => s.commandQueue;

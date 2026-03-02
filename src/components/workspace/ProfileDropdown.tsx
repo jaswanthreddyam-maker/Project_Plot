@@ -6,12 +6,28 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSession, signIn, signOut } from "next-auth/react";
+
+function getUserInfoFromToken(): { email?: string; name?: string } | null {
+    if (typeof window === "undefined") return null;
+    const token = localStorage.getItem("plot_auth_token");
+    if (!token) return null;
+
+    try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return { email: payload.sub || payload.email, name: payload.name };
+    } catch {
+        return { email: "User" };
+    }
+}
 
 export default function ProfileDropdown() {
-    const { data: session } = useSession();
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Derive user info from localStorage token (JWT payload)
+    const [userInfo] = useState<{ email?: string; name?: string } | null>(
+        () => getUserInfoFromToken()
+    );
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -24,25 +40,20 @@ export default function ProfileDropdown() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [open]);
 
-    if (!session?.user) return null;
+    if (!userInfo) return null;
 
-    const user = session.user;
-    const initials = (user.name || user.email || "U")
+    const displayName = userInfo.name || userInfo.email || "User";
+    const initials = displayName
         .split(" ")
         .map((w) => w[0])
         .join("")
         .toUpperCase()
         .slice(0, 2);
 
-    const handleLogout = async () => {
+    const handleLogout = () => {
         setOpen(false);
-        await signOut({ callbackUrl: "/login" });
-    };
-
-    const handleSwitchAccount = () => {
-        setOpen(false);
-        // Open Google account picker directly — no sign-out needed
-        signIn("google", { callbackUrl: "/workspace" });
+        localStorage.removeItem("plot_auth_token");
+        window.location.href = "/login";
     };
 
     return (
@@ -52,18 +63,9 @@ export default function ProfileDropdown() {
                 onClick={() => setOpen(!open)}
                 className="flex items-center gap-2 rounded-full hover:ring-2 hover:ring-gray-200 transition-all"
             >
-                {(user as { image?: string }).image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                        src={(user as { image?: string }).image!}
-                        alt={user.name || "Profile"}
-                        className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                    />
-                ) : (
-                    <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs font-bold">
-                        {initials}
-                    </div>
-                )}
+                <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs font-bold">
+                    {initials}
+                </div>
             </button>
 
             {/* Dropdown menu */}
@@ -72,26 +74,14 @@ export default function ProfileDropdown() {
                     {/* User info */}
                     <div className="px-4 py-3 border-b border-gray-100">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                            {user.name || "User"}
+                            {displayName}
                         </p>
                         <p className="text-xs text-gray-500 truncate">
-                            {user.email}
+                            {userInfo.email}
                         </p>
                     </div>
 
                     {/* Menu items */}
-                    <button
-                        onClick={handleSwitchAccount}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
-                            <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-                            <circle cx="8.5" cy="7" r="4" />
-                            <path d="M20 8v6M23 11h-6" />
-                        </svg>
-                        Switch Account
-                    </button>
-
                     <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"

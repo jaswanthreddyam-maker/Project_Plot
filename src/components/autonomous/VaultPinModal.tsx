@@ -66,7 +66,8 @@ export default function VaultPinModal({ isOpen, onClose, onSuccess, isSettingPin
             const res = await fetchWithTimeout(`${API_BASE}/api/vault/set-pin`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ pin })
+                body: JSON.stringify({ pin }),
+                timeout: 15000,
             });
 
             if (res.ok) {
@@ -75,10 +76,12 @@ export default function VaultPinModal({ isOpen, onClose, onSuccess, isSettingPin
                 onPinSet();
                 onSuccess(); // Unlocks the vault directly after setting
             } else {
-                setError("Failed to set PIN.");
+                const data = await res.json().catch(() => ({}));
+                setError(data?.detail || "Failed to set PIN.");
             }
         } catch (err) {
-            setError("Network error.");
+            const reason = err instanceof Error ? err.message : "Network error.";
+            setError(reason.includes("timed out") ? "Request timed out. Check backend." : "Network error. Check backend and CORS.");
         } finally {
             setLoading(false);
         }
@@ -123,9 +126,15 @@ export default function VaultPinModal({ isOpen, onClose, onSuccess, isSettingPin
                             <input
                                 autoFocus
                                 type="password"
+                                name="vault-pin-entry"
                                 value={pin}
                                 onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                                 onKeyDown={(e) => e.key === "Enter" && !isSettingPin && handleVerifyPin()}
+                                autoComplete="one-time-code"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                data-lpignore="true"
+                                data-1p-ignore
                                 placeholder="••••••"
                                 className="w-full bg-slate-50 dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-2xl tracking-[1em] text-center font-bold focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white transition-all text-slate-900 dark:text-white"
                             />
@@ -138,9 +147,15 @@ export default function VaultPinModal({ isOpen, onClose, onSuccess, isSettingPin
                                 </label>
                                 <input
                                     type="password"
+                                    name="vault-pin-confirm"
                                     value={confirmPin}
                                     onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                                     onKeyDown={(e) => e.key === "Enter" && handleSetPin()}
+                                    autoComplete="one-time-code"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    data-lpignore="true"
+                                    data-1p-ignore
                                     placeholder="••••••"
                                     className="w-full bg-slate-50 dark:bg-black border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 text-2xl tracking-[1em] text-center font-bold focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white transition-all text-slate-900 dark:text-white"
                                 />

@@ -1,6 +1,10 @@
 import os
 import uuid
 import logging
+import base64
+import hashlib
+import hmac
+import secrets
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from cryptography.fernet import Fernet
@@ -43,9 +47,60 @@ class VaultKeyResponse(BaseModel):
     key_name: str
     category: str
     masked_value: str
+    created_at: str
+
+
+class VariableItem(BaseModel):
+    key: str
+    value: str
+
+
+class BulkVariableRequest(BaseModel):
+    variables: List[VariableItem]
 
 class PinRequest(BaseModel):
     pin: str
+
+
+PIN_HASH_SCHEME = "pbkdf2_sha256"
+PIN_ITERATIONS = 200_000
+
+
+def hash_pin(pin: str) -> str:
+    """Create a durable PIN hash independent of system bcrypt backends."""
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"), salt, PIN_ITERATIONS)
+    salt_b64 = base64.urlsafe_b64encode(salt).decode("ascii")
+    digest_b64 = base64.urlsafe_b64encode(digest).decode("ascii")
+    return f"{PIN_HASH_SCHEME}${PIN_ITERATIONS}${salt_b64}${digest_b64}"
+
+
+def verify_pin_hash(pin: str, stored_hash: str) -> bool:
+    """Verify PBKDF2 hash; supports legacy bcrypt hashes as fallback."""
+    if not stored_hash:
+        return False
+
+    if stored_hash.startswith(f"{PIN_HASH_SCHEME}$"):
+        try:
+            _, iterations, salt_b64, digest_b64 = stored_hash.split("$", 3)
+            salt = base64.urlsafe_b64decode(salt_b64.encode("ascii"))
+            expected = base64.urlsafe_b64decode(digest_b64.encode("ascii"))
+            actual = hashlib.pbkdf2_hmac(
+                "sha256",
+                pin.encode("utf-8"),
+                salt,
+                int(iterations),
+            )
+            return hmac.compare_digest(actual, expected)
+        except Exception:
+            return False
+
+    # Backward compatibility for previously saved bcrypt hashes.
+    try:
+        return bcrypt.verify(pin, stored_hash)
+    except Exception:
+        return False
+
 
 @router.post("/save")
 def save_vault_key(req: VaultSaveRequest, current_user: str = Depends(get_current_user)):
@@ -90,6 +145,54 @@ def save_vault_key(req: VaultSaveRequest, current_user: str = Depends(get_curren
         logging.error(f"Error saving vault key: {e}")
         raise HTTPException(status_code=500, detail="Database is currently busy. Please try saving again in a moment.")
 
+
+@router.post("/bulk")
+def save_bulk_vault_variables(req: BulkVariableRequest, current_user: str = Depends(get_current_user)):
+    """Bulk upsert environment variables in the Vault."""
+    if not req.variables:
+        raise HTTPException(status_code=400, detail="At least one variable is required.")
+
+    normalized: dict[str, str] = {}
+    for item in req.variables:
+        key = item.key.strip()
+        value = item.value.strip()
+        if not key or not value:
+            raise HTTPException(status_code=400, detail="Each variable requires both key and value.")
+        normalized[key] = value
+
+    try:
+        inserted = 0
+        with get_db_session() as db:
+            for key_name, value in normalized.items():
+                encrypted_value = fernet.encrypt(value.encode()).decode()
+                existing_key = db.query(VaultKey).filter(
+                    VaultKey.key_name == key_name,
+                    VaultKey.user_id == current_user
+                ).first()
+
+                if existing_key:
+                    existing_key.encrypted_value = encrypted_value
+                    existing_key.category = "ENV"
+                    db.add(existing_key)
+                else:
+                    db.add(VaultKey(
+                        id=str(uuid.uuid4()),
+                        user_id=current_user,
+                        key_name=key_name,
+                        encrypted_value=encrypted_value,
+                        category="ENV"
+                    ))
+                inserted += 1
+
+            db.commit()
+
+        return {"status": "success", "inserted": inserted}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error saving bulk vault variables: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save variables.")
+
 @router.get("/list", response_model=List[VaultKeyResponse])
 def list_vault_keys(current_user: str = Depends(get_current_user)):
     """Returns a list of keys with masked values for the UI."""
@@ -112,7 +215,8 @@ def list_vault_keys(current_user: str = Depends(get_current_user)):
                 id=key.id,
                 key_name=key.key_name,
                 category=key.category,
-                masked_value=masked
+                masked_value=masked,
+                created_at=key.created_at.isoformat() if key.created_at else ""
             ))
         return response
 
@@ -135,19 +239,23 @@ def set_vault_pin(req: PinRequest, current_user: str = Depends(get_current_user)
     """Hashes and saves a 4-6 digit PIN for the user."""
     if not req.pin.isdigit() or not (4 <= len(req.pin) <= 6):
         raise HTTPException(status_code=400, detail="PIN must be 4-6 digits.")
-        
-    hashed_pin = bcrypt.hash(req.pin)
-    
-    with get_db_session() as db:
-        config = db.query(GlobalConfig).filter(GlobalConfig.user_id == current_user).first()
-        if not config:
-            # Create a default config if none exists for the user
-            config = GlobalConfig(id=str(uuid.uuid4()), user_id=current_user)
-            db.add(config)
-        
-        config.vault_pin_hash = hashed_pin
-        db.commit()
-        
+
+    try:
+        hashed_pin = hash_pin(req.pin)
+
+        with get_db_session() as db:
+            config = db.query(GlobalConfig).filter(GlobalConfig.user_id == current_user).first()
+            if not config:
+                # Create a default config if none exists for the user
+                config = GlobalConfig(id=str(uuid.uuid4()), user_id=current_user)
+                db.add(config)
+
+            config.vault_pin_hash = hashed_pin
+            db.commit()
+    except Exception as e:
+        logging.exception("Failed to set vault PIN: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to set vault PIN.")
+
     return {"status": "success", "message": "Vault PIN set successfully."}
 
 @router.post("/verify-pin")
@@ -157,14 +265,10 @@ def verify_vault_pin(req: PinRequest, current_user: str = Depends(get_current_us
         config = db.query(GlobalConfig).filter(GlobalConfig.user_id == current_user).first()
         if not config or not config.vault_pin_hash:
             raise HTTPException(status_code=404, detail="No PIN configured.")
-            
-        try:
-            if bcrypt.verify(req.pin, config.vault_pin_hash):
-                return {"unlocked": True}
-            else:
-                raise HTTPException(status_code=400, detail="Incorrect PIN")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Incorrect PIN")
+
+        if verify_pin_hash(req.pin, config.vault_pin_hash):
+            return {"unlocked": True}
+        raise HTTPException(status_code=400, detail="Incorrect PIN")
 
 @router.get("/has-pin")
 def has_vault_pin(current_user: str = Depends(get_current_user)):

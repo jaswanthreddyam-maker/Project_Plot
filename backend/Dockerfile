@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 
 # Fix for ChromaDB/pysqlite3 compatibility
 ENV LD_LIBRARY_PATH=/usr/local/lib
-RUN ln -s /usr/lib/x86_64-linux-gnu/libsqlite3.so.0 /usr/lib/x86_64-linux-gnu/libsqlite3.so
+RUN ln -sf /usr/lib/x86_64-linux-gnu/libsqlite3.so.0 /usr/lib/x86_64-linux-gnu/libsqlite3.so
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

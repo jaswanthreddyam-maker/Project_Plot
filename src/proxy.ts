@@ -1,13 +1,19 @@
 /**
- * Auth Proxy - route protection for Plot.
+ * Proxy is intentionally disabled for app-page auth redirects.
  *
- * - Unauthenticated users visiting /workspace -> redirect to /login
- * - Authenticated users visiting /login -> redirect to /workspace
+ * This project currently uses a FastAPI JWT stored in localStorage
+ * (`plot_auth_token`) for `/workspace` gating on the client. Server-side
+ * middleware cannot read localStorage, which caused redirect loops:
+ * `/login` -> `/workspace` (client guard) and `/workspace` -> `/login`
+ * (server proxy).
  */
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export { auth as proxy } from "@/lib/auth";
+export function proxy(_request: NextRequest) {
+    return NextResponse.next();
+}
 
 export const config = {
-    matcher: ["/workspace/:path*", "/login"],
+    matcher: ["/__proxy_disabled__/:path*"],
 };
-

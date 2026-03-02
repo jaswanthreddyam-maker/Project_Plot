@@ -12,7 +12,7 @@
  */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useUIStore } from "@/store/uiStore";
 
 const OLLAMA_PING_URL = "http://localhost:11434/api/tags";
@@ -33,14 +33,7 @@ export default function OllamaSetupModal() {
     } = useUIStore();
 
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const [mixedContent, setMixedContent] = useState(false);
-
-    // ── Detect mixed-content on mount ───────────────────
-    useEffect(() => {
-        if (ollamaModalOpen && isSecureContext()) {
-            setMixedContent(true);
-        }
-    }, [ollamaModalOpen]);
+    const mixedContent = ollamaModalOpen && isSecureContext();
 
     // ── Background polling (skip on HTTPS) ──────────────
     useEffect(() => {

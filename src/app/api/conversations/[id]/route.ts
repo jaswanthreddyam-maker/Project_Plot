@@ -3,16 +3,16 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getAuthenticatedUserId } from "@/lib/serverAuth";
 
 export async function DELETE(
-    _req: Request,
+    req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
+        const userId = await getAuthenticatedUserId(req);
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -20,7 +20,7 @@ export async function DELETE(
         const deleted = await prisma.conversation.deleteMany({
             where: {
                 id,
-                userId: session.user.id,
+                userId,
             },
         });
 
@@ -40,4 +40,3 @@ export async function DELETE(
         );
     }
 }
-

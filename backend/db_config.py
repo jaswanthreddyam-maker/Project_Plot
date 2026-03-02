@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Float, Integer, JSON
+from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Float, Integer, JSON, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
 from datetime import datetime
@@ -173,3 +173,46 @@ class Template(Base):
 
 # Auto-create all tables
 Base.metadata.create_all(engine)
+
+def _ensure_global_configs_columns():
+    """
+    Backfill missing SQLite columns for legacy local DBs.
+    create_all() does not alter existing tables, so older databases can miss
+    newly added columns required by the current ORM model.
+    """
+    if engine.url.get_backend_name() != "sqlite":
+        return
+
+    with engine.begin() as conn:
+        table_exists = conn.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name='global_configs'")
+        ).fetchone()
+        if not table_exists:
+            return
+
+        existing_columns = {
+            row[1] for row in conn.execute(text("PRAGMA table_info(global_configs)")).fetchall()
+        }
+
+        required_columns = [
+            ("user_id", "TEXT"),
+            ("vault_pin_hash", "TEXT"),
+            ("stripe_customer_id", "TEXT"),
+            ("stripe_subscription_item_id", "TEXT"),
+            ("subscription_status", "TEXT DEFAULT 'none'"),
+            ("updated_at", "DATETIME"),
+        ]
+
+        for col_name, col_type in required_columns:
+            if col_name not in existing_columns:
+                conn.execute(text(f"ALTER TABLE global_configs ADD COLUMN {col_name} {col_type}"))
+
+        # Keep older rows compatible with current app logic.
+        conn.execute(
+            text(
+                "UPDATE global_configs "
+                "SET subscription_status = COALESCE(subscription_status, 'none')"
+            )
+        )
+
+_ensure_global_configs_columns()

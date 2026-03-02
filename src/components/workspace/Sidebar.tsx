@@ -12,6 +12,7 @@ import {
     ResponseSet,
     useChatStore,
 } from "@/store/chatStore";
+import { fetchWithTimeout } from "@/lib/api";
 
 const TEXT_ASSISTANT_PROVIDERS = new Set([
     "openai",
@@ -195,9 +196,7 @@ function buildResponseSets(
 
 export default function Sidebar() {
     const { theme, setTheme, resolvedTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => setMounted(true), []);
+    const displayTheme = theme === "system" ? resolvedTheme : theme;
 
     const {
         sidebarCollapsed,
@@ -251,7 +250,7 @@ export default function Sidebar() {
 
         const loadConversations = async () => {
             try {
-                const res = await fetch("/api/conversations");
+                const res = await fetchWithTimeout("/api/conversations");
                 if (!res.ok) return;
 
                 const payload = await res.json().catch(() => ({}));
@@ -304,7 +303,7 @@ export default function Sidebar() {
 
     const handleClearHistory = async () => {
         try {
-            await fetch("/api/conversations", { method: "DELETE" });
+            await fetchWithTimeout("/api/conversations", { method: "DELETE" });
         } catch {
             // Still clear local state so UI remains responsive.
         }
@@ -318,7 +317,7 @@ export default function Sidebar() {
 
     const handleDeleteConversation = async (id: string) => {
         try {
-            await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+            await fetchWithTimeout(`/api/conversations/${id}`, { method: "DELETE" });
         } catch {
             // Keep local delete behavior even if backend request fails.
         }
@@ -334,7 +333,7 @@ export default function Sidebar() {
 
     const handleOpenConversation = async (id: string) => {
         try {
-            const res = await fetch(`/api/conversations/${id}/messages`);
+            const res = await fetchWithTimeout(`/api/conversations/${id}/messages`);
             if (!res.ok) return;
 
             const payload = await res.json().catch(() => ({}));
@@ -392,21 +391,21 @@ export default function Sidebar() {
         <>
             <aside
                 className={`
-                    flex flex-col h-full bg-white dark:bg-[#171717] border-r border-gray-200 dark:border-[#262626]
+                    flex flex-col h-full bg-white dark:bg-[#1e1f22] border-r border-gray-200 dark:border-[#333639]
                     transition-all duration-300 ease-in-out
                     ${sidebarCollapsed ? "w-0 overflow-hidden" : "w-64"}
                 `}
             >
                 {/* ── Top Bar: Hamburger + New Chat + Search ──────── */}
-                <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-100 dark:border-[#262626]">
+                <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-100 dark:border-[#333639]">
                     {/* Hamburger */}
                     <button
                         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#262626] transition-colors"
+                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#282a2c] transition-colors"
                         title="Toggle sidebar"
                         suppressHydrationWarning
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600 dark:text-[#c4c7c5]">
                             <line x1="3" y1="6" x2="21" y2="6" />
                             <line x1="3" y1="12" x2="21" y2="12" />
                             <line x1="3" y1="18" x2="21" y2="18" />
@@ -432,11 +431,11 @@ export default function Sidebar() {
                             setSearchOpen(!searchOpen);
                             if (searchOpen) setSearchQuery("");
                         }}
-                        className={`p-2 rounded-lg hover:bg-gray-100 transition-colors ml-auto ${searchOpen ? "bg-gray-100" : ""}`}
+                        className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#282a2c] transition-colors ml-auto ${searchOpen ? "bg-gray-100 dark:bg-[#282a2c]" : ""}`}
                         title="Search conversations"
                         suppressHydrationWarning
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500 dark:text-[#c4c7c5]">
                             <circle cx="11" cy="11" r="8" />
                             <line x1="21" y1="21" x2="16.65" y2="16.65" />
                         </svg>
@@ -445,7 +444,7 @@ export default function Sidebar() {
 
                 {/* ── Search Input (slides open) ────────────────── */}
                 {searchOpen && (
-                    <div className="px-3 py-2 border-b border-gray-100">
+                    <div className="px-3 py-2 border-b border-gray-100 dark:border-[#333639]">
                         <div className="relative">
                             <input
                                 ref={searchRef}
@@ -455,11 +454,11 @@ export default function Sidebar() {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search chats..."
-                                className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-gray-400 text-gray-700 placeholder-gray-400 transition-colors"
+                                className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-gray-400 text-gray-700 placeholder-gray-400 transition-colors dark:border-[#333639] dark:bg-[#1e1f22] dark:text-[#e3e3e3] dark:placeholder:text-[#c4c7c5]"
                                 suppressHydrationWarning
                             />
                             {/* Search icon inside input */}
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-[#c4c7c5]">
                                 <circle cx="11" cy="11" r="8" />
                                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
                             </svg>
@@ -467,7 +466,7 @@ export default function Sidebar() {
                             {searchQuery && (
                                 <button
                                     onClick={() => setSearchQuery("")}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3]"
                                     suppressHydrationWarning
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -483,7 +482,7 @@ export default function Sidebar() {
                 {/* ── Chat History ────────────────────────────────── */}
                 <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
                     {filtered.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-8">
+                        <p className="text-sm text-gray-400 dark:text-[#c4c7c5] text-center py-8">
                             {searchQuery
                                 ? `No results for "${searchQuery}"`
                                 : "No conversations yet"}
@@ -495,21 +494,21 @@ export default function Sidebar() {
                                     key={conv.id}
                                     onClick={() => handleOpenConversation(conv.id)}
                                     className={`group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${conversationId === conv.id
-                                        ? "bg-gray-100"
-                                        : "hover:bg-gray-50"
+                                        ? "bg-gray-100 dark:bg-[#282a2c]"
+                                        : "hover:bg-gray-50 dark:hover:bg-[#282a2c]"
                                         }`}
                                 >
-                                    <span className="text-sm text-gray-700 truncate flex-1">
+                                    <span className="text-sm text-gray-700 dark:text-[#e3e3e3] truncate flex-1">
                                         {conv.title}
                                     </span>
                                     {/* Delete icon */}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDeleteConversation(conv.id); }}
-                                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-200 transition-all"
+                                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-[#282a2c] transition-all"
                                         title="Delete conversation"
                                         suppressHydrationWarning
                                     >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400 dark:text-[#c4c7c5]">
                                             <polyline points="3 6 5 6 21 6" />
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                         </svg>
@@ -521,12 +520,12 @@ export default function Sidebar() {
                 </div>
 
                 {/* ── Clear History ───────────────────────────────── */}
-                <div className="px-3 py-2 border-t border-gray-100">
+                <div className="px-3 py-2 border-t border-gray-100 dark:border-[#333639]">
                     <button
                         onClick={() => conversations.length > 0 ? setConfirmClear(true) : undefined}
                         disabled={conversations.length === 0}
                         title={conversations.length === 0 ? "No conversation history to clear" : ""}
-                        className="w-full py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="w-full py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-[#333639] dark:text-[#c4c7c5] dark:hover:bg-[#282a2c]"
                         suppressHydrationWarning
                     >
                         Clear History
@@ -534,17 +533,17 @@ export default function Sidebar() {
                 </div>
 
                 {/* ── Settings Popover & Button ───────────────────── */}
-                <div className="px-3 py-3 border-t border-gray-100 dark:border-[#262626] relative mt-auto" ref={settingsMenuRef}>
+                <div className="px-3 py-3 border-t border-gray-100 dark:border-[#333639] relative mt-auto" ref={settingsMenuRef}>
                     {/* Popover Menu */}
                     {settingsMenuOpen && (
-                        <div className="absolute bottom-full left-3 mb-2 w-56 bg-white dark:bg-[#171717] border border-gray-200 dark:border-[#262626] rounded-xl shadow-lg py-1 z-50 animate-[paragraphFadeIn_0.15s_ease-out]">
+                        <div className="absolute bottom-full left-3 mb-2 w-56 bg-white dark:bg-[#1e1f22] border border-gray-200 dark:border-[#333639] rounded-xl shadow-lg py-1 z-50 animate-[paragraphFadeIn_0.15s_ease-out]">
                             {/* API Keys Item */}
                             <button
                                 onClick={() => {
                                     setSettingsMenuOpen(false);
                                     setSettingsOpen(true);
                                 }}
-                                className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors"
+                                className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-[#e3e3e3] hover:bg-gray-50 dark:hover:bg-[#282a2c] transition-colors"
                                 suppressHydrationWarning
                             >
                                 <div className="flex items-center gap-2">
@@ -558,7 +557,7 @@ export default function Sidebar() {
                             {/* Theme Item with Hover Submenu */}
                             <div className="relative group/theme-item">
                                 <button
-                                    className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors"
+                                    className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-[#e3e3e3] hover:bg-gray-50 dark:hover:bg-[#282a2c] transition-colors"
                                     suppressHydrationWarning
                                 >
                                     <div className="flex items-center gap-2">
@@ -581,44 +580,60 @@ export default function Sidebar() {
                                 </button>
 
                                 {/* Vertically-aligned Submenu */}
-                                <div className="absolute left-full top-0 ml-1 w-32 bg-white dark:bg-[#171717] border border-gray-200 dark:border-[#262626] rounded-xl shadow-lg py-1 z-50 opacity-0 invisible group-hover/theme-item:opacity-100 group-hover/theme-item:visible transition-all duration-200">
+                                <div className="absolute left-full top-0 ml-1 w-32 bg-white dark:bg-[#1e1f22] border border-gray-200 dark:border-[#333639] rounded-xl shadow-lg py-1 z-50 opacity-0 invisible group-hover/theme-item:opacity-100 group-hover/theme-item:visible transition-all duration-200">
                                     <button
                                         onClick={() => setTheme("light")}
-                                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors"
+                                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-[#e3e3e3] hover:bg-gray-50 dark:hover:bg-[#282a2c] transition-colors"
                                         suppressHydrationWarning
                                     >
-                                        Light {mounted && theme === "light" && <span className="text-xs">✓</span>}
+                                        Light {displayTheme === "light" && <span className="text-xs">✓</span>}
                                     </button>
                                     <button
                                         onClick={() => setTheme("dark")}
-                                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors"
+                                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-[#e3e3e3] hover:bg-gray-50 dark:hover:bg-[#282a2c] transition-colors"
                                         suppressHydrationWarning
                                     >
-                                        Dark {mounted && theme === "dark" && <span className="text-xs">✓</span>}
+                                        Dark {displayTheme === "dark" && <span className="text-xs">✓</span>}
                                     </button>
                                     <button
                                         onClick={() => setTheme("system")}
-                                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors"
+                                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-[#e3e3e3] hover:bg-gray-50 dark:hover:bg-[#282a2c] transition-colors"
                                         suppressHydrationWarning
                                     >
-                                        System {mounted && theme === "system" && <span className="text-xs">✓</span>}
+                                        System {theme === "system" && <span className="text-xs">✓</span>}
                                     </button>
                                 </div>
                             </div>
+
+                            <button
+                                onClick={() => {
+                                    localStorage.removeItem("plot_auth_token");
+                                    window.location.href = "/login";
+                                }}
+                                className="w-full flex items-center justify-start gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-[#282a2c] transition-colors mt-1 border-t border-gray-100 dark:border-[#333639]"
+                                suppressHydrationWarning
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-0.5">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16 17 21 12 16 7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
+                                Log Out
+                            </button>
                         </div>
                     )}
 
                     {/* Settings Base Trigger Button */}
                     <button
                         onClick={() => setSettingsMenuOpen(!settingsMenuOpen)}
-                        className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg transition-colors ${settingsMenuOpen ? "bg-gray-50 dark:bg-[#262626]" : "hover:bg-gray-50 dark:hover:bg-[#262626]"
+                        className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg transition-colors ${settingsMenuOpen ? "bg-gray-50 dark:bg-[#282a2c]" : "hover:bg-gray-50 dark:hover:bg-[#282a2c]"
                             }`}
                         suppressHydrationWarning
                     >
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center shrink-0 border border-gray-200 dark:border-[#262626]">
-                            <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300">⚙</span>
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-[#333639] dark:to-[#282a2c] flex items-center justify-center shrink-0 border border-gray-200 dark:border-[#333639]">
+                            <span className="text-[10px] font-bold text-gray-600 dark:text-[#e3e3e3]">⚙</span>
                         </div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">Settings</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-[#e3e3e3] truncate">Settings</span>
                     </button>
                 </div>
             </aside>

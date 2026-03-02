@@ -3,16 +3,51 @@ import redis
 import os
 import base64
 from celery import shared_task
-from crewai.telemetry import Telemetry
 from pydantic import ValidationError
 
 from backend.db_config import engine, SessionLocal, IntegrationToken
 
 # Connect to Redis for manual PubSub streaming (this allows Celery workers to push data back to FastAPI)
-redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0"))
+redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0"))
 
 # Import your tools/crews (We will create a dummy crew or integrate one next)
 # from flows.sample_flow import SampleFlow
+
+
+def _build_crewai_fallback(arguments: dict, execution_id: str, missing_module: str):
+    """Return a deterministic fallback payload when CrewAI runtime is unavailable."""
+    objective = arguments.get("objective", "Unknown objective")
+    tasks = arguments.get("tasks", []) or arguments.get("tasks_config", [])
+    agents = arguments.get("agents", []) or arguments.get("agents_config", [])
+
+    planned_steps = []
+    for idx, task in enumerate(tasks, start=1):
+        if isinstance(task, dict):
+            desc = task.get("description") or task.get("expected_output") or f"Task {idx}"
+        else:
+            desc = str(task)
+        planned_steps.append(desc)
+
+    if not planned_steps:
+        planned_steps = [
+            "Define the objective and expected output.",
+            "Add at least one agent with a role and goal.",
+            "Connect tasks sequentially and rerun execution.",
+        ]
+
+    return {
+        "mode": "fallback",
+        "execution_id": execution_id,
+        "status": "completed_without_crewai_runtime",
+        "missing_module": missing_module,
+        "objective": objective,
+        "agents_detected": len(agents),
+        "planned_steps": planned_steps,
+        "note": (
+            "CrewAI is not installed in this Python runtime. "
+            "Returned a fallback execution plan instead of running autonomous agents."
+        ),
+    }
 
 @shared_task(name="tools.execute_tool_task.run_agent_tool", bind=True)
 def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str, user_id: str):
@@ -36,8 +71,23 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str, use
         on_agent_status_change({"agent": "System", "state": "Initializing CrewAI Workflows..."})
         
         if tool_name == "PlotAutonomous":
-            from autonomous_flow import PlotAutonomousFlow
-            from listeners import PlotEventListener
+            try:
+                from backend.autonomous_flow import PlotAutonomousFlow
+                from backend.listeners import PlotEventListener
+            except ModuleNotFoundError as import_error:
+                missing_name = getattr(import_error, "name", "") or "unknown"
+                if missing_name.startswith("crewai"):
+                    fallback_output = _build_crewai_fallback(arguments, execution_id, missing_name)
+                    on_agent_status_change(
+                        {
+                            "agent": "System",
+                            "state": "CrewAI runtime unavailable. Returned fallback execution plan.",
+                        }
+                    )
+                    result_str = json.dumps(fallback_output)
+                    redis_client.rpush(stream_channel, f"__DONE__{result_str}")
+                    return {"status": "success", "result": fallback_output, "fallback": True}
+                raise
             
             # Setup Event Listener
             listener = PlotEventListener(execution_id=execution_id, user_id=user_id)
@@ -67,6 +117,7 @@ def run_agent_tool(self, tool_name: str, arguments: dict, execution_id: str, use
                 flow = PlotAutonomousFlow()
                 flow.state.user_input = objective
                 flow.state.execution_id = execution_id
+                flow.state.user_id = user_id
                 
                 # Dynamically set frontend configuration for Crew creation
                 flow.state.agents_config = arguments.get("agents", [])

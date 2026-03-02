@@ -49,10 +49,10 @@ const SAMPLE_DOCUMENTS = [
     },
     {
         content:
-            "Authentication in Plot is handled by NextAuth.js with support for both email/password " +
-            "credentials and Google OAuth. User data, sessions, and accounts are stored in " +
-            "PostgreSQL via Prisma ORM. Sensitive provider API keys are encrypted using AES-256-GCM " +
-            "before storage.",
+            "Authentication in Plot uses backend-issued JWT bearer tokens with support for both " +
+            "email/password credentials and Google OAuth. User records are stored in PostgreSQL " +
+            "via Prisma ORM. Sensitive provider API keys are encrypted using AES-256-GCM before " +
+            "storage.",
         metadata: { source: "docs/security.md", category: "technical" },
     },
     {

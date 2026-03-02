@@ -324,8 +324,12 @@ export default function ToolsIntegrations() {
                                 </svg>
                                 <input
                                     type="text"
+                                    name="integration-search"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
+                                    autoComplete="off"
+                                    data-lpignore="true"
+                                    data-1p-ignore
                                     placeholder="Search"
                                     className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400"
                                 />
@@ -530,12 +534,20 @@ export default function ToolsIntegrations() {
                                 </button>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Use this token to authenticate agent actions with external services.</p>
+                            <div className="hidden" aria-hidden="true">
+                                <input type="text" name="fake-username" autoComplete="username" tabIndex={-1} />
+                                <input type="password" name="fake-password" autoComplete="current-password" tabIndex={-1} />
+                            </div>
                             <div className="flex gap-2">
                                 <div className="flex-1 relative">
                                     <input
                                         type={tokenRevealed ? "text" : "password"}
+                                        name="enterprise-auth-token"
                                         value={authToken}
                                         onChange={(e) => setAuthToken(e.target.value)}
+                                        autoComplete="new-password"
+                                        data-lpignore="true"
+                                        data-1p-ignore
                                         className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-white pr-20"
                                     />
                                     <button

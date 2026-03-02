@@ -1,7 +1,7 @@
 "use client";
 
 import { useUIStore } from "@/store/uiStore";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 
@@ -38,21 +38,38 @@ export default function OtherToolsMenu() {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/tools/execute`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/tools/execute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     tool_name: toolId,
                     arguments: { topic: "AI Agents" } // Example args
                 }),
+                timeout: 15000,
             });
 
             if (res.ok) {
                 const data = await res.json();
+                if (!data.task_id) {
+                    console.error("Failed to start tool execution: missing task_id in response", data);
+                    return;
+                }
                 // Ensure immediate UI mount of ToolExecutionStream
                 setToolExecutionStart(data.task_id, data.execution_id || data.task_id);
             } else {
-                console.error("Failed to start tool execution");
+                let detail = `HTTP ${res.status}`;
+                try {
+                    const errData = await res.json();
+                    detail = errData.detail || errData.message || detail;
+                } catch {
+                    try {
+                        const text = await res.text();
+                        if (text) detail = text;
+                    } catch {
+                        // Keep fallback detail.
+                    }
+                }
+                console.error("Failed to start tool execution:", detail);
             }
         } catch (error) {
             console.error("API error:", error);

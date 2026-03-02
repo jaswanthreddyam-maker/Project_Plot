@@ -7,10 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ProviderManager } from "@/core/providers/manager";
 import { ProviderName, StreamMessage } from "@/core/providers/types";
+import { getAuthenticatedUserId } from "@/lib/serverAuth";
 
 type RefereeCandidate = Extract<ProviderName, "openai" | "gemini" | "claude" | "grok">;
 
@@ -236,8 +236,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
         }
 
-        const session = await auth().catch(() => null);
-        const userId = session?.user?.id;
+        const userId = await getAuthenticatedUserId(req);
 
         let responses = normalizeResponses(body.responses);
         if (responses.length === 0 && body.conversationId && body.batchId && userId) {
@@ -300,7 +299,7 @@ export async function POST(req: NextRequest) {
         }
 
         const persisted = await persistSummaryIfPossible(
-            userId,
+            userId || undefined,
             body.conversationId,
             body.batchId,
             summary
@@ -320,4 +319,3 @@ export async function POST(req: NextRequest) {
         );
     }
 }
-

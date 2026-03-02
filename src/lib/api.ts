@@ -1,57 +1,182 @@
+import { useNetworkStore } from "@/store/networkStore";
+
 /**
  * Centralized API configuration.
- * Uses NEXT_PUBLIC_API_URL env var when deployed, falls back to 127.0.0.1 for local dev.
+ * Uses NEXT_PUBLIC_API_URL when provided.
+ * In local dev, force 127.0.0.1 to avoid localhost/IPv6 mismatches
+ * when backend is bound to 127.0.0.1.
  */
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+function resolveApiBase(): string {
+    const configured = process.env.NEXT_PUBLIC_API_URL;
+    if (configured) return configured;
+    return "http://127.0.0.1:8000";
+}
 
-import { getSession, signOut } from "next-auth/react";
+export const API_BASE = resolveApiBase();
 
-/**
- * Fetch wrapper that adds an explicit timeout to requests.
- * Default timeout is 10000ms (10 seconds).
- */
-export async function fetchWithTimeout(resource: RequestInfo | URL, options: RequestInit & { timeout?: number } = {}) {
-    const { timeout = 10000 } = options;
+const OFFLINE_MESSAGE = "Backend Offline: Reconnecting...";
+let globalFetchInterceptorsInitialized = false;
 
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
+function getAuthToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("plot_auth_token");
+}
 
-    const headers = new Headers(options.headers || {});
+function resolveRequestUrl(input: RequestInfo | URL): string {
+    if (typeof input === "string") return input;
+    if (input instanceof URL) return input.toString();
+    return input.url;
+}
 
-    // Dynamically retrieve token from NextAuth session or fallback
-    let token = null;
+function isApiRequest(url: string): boolean {
+    if (url.startsWith("/api/")) return true;
+    if (url === "/api") return true;
+    if (url.startsWith(`${API_BASE}/api/`) || url === `${API_BASE}/api`) return true;
+
     if (typeof window !== "undefined") {
-        const session = await getSession();
-        token = (session as any)?.accessToken || (session?.user as any)?.id || localStorage.getItem("token");
+        const sameOriginApiPrefix = `${window.location.origin}/api/`;
+        if (url.startsWith(sameOriginApiPrefix) || url === `${window.location.origin}/api`) {
+            return true;
+        }
     }
 
-    if (token) {
+    return false;
+}
+
+function markBackendOffline(message = OFFLINE_MESSAGE): void {
+    if (typeof window === "undefined") return;
+    useNetworkStore.getState().setBackendOffline(true, message);
+}
+
+function clearBackendOffline(): void {
+    if (typeof window === "undefined") return;
+    useNetworkStore.getState().clearBackendOffline();
+}
+
+function getErrorName(error: unknown): string | null {
+    if (!error || typeof error !== "object" || !("name" in error)) {
+        return null;
+    }
+    const name = (error as { name?: unknown }).name;
+    return typeof name === "string" ? name : null;
+}
+
+function mergeHeaders(input: RequestInfo | URL, init?: RequestInit): Headers {
+    const headers = new Headers();
+    if (input instanceof Request) {
+        input.headers.forEach((value, key) => headers.set(key, value));
+    }
+    if (init?.headers) {
+        new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    }
+    return headers;
+}
+
+function withAuthHeader(
+    input: RequestInfo | URL,
+    init?: RequestInit
+): { input: RequestInfo | URL; init?: RequestInit } {
+    const url = resolveRequestUrl(input);
+    const token = getAuthToken();
+    if (!token || !isApiRequest(url)) {
+        return { input, init };
+    }
+
+    const headers = mergeHeaders(input, init);
+    if (!headers.has("Authorization")) {
         headers.set("Authorization", `Bearer ${token}`);
     }
 
-    try {
-        const response = await fetch(resource, {
-            ...options,
-            headers,
-            signal: controller.signal
-        });
-        clearTimeout(id);
+    if (input instanceof Request) {
+        return {
+            input: new Request(input, { ...init, headers }),
+            init: undefined,
+        };
+    }
 
-        if (response.status === 401) {
-            console.warn("401 Unauthorized - Redirecting to login");
-            if (typeof window !== "undefined") {
-                await signOut({ redirect: false });
-                localStorage.removeItem("token");
+    return {
+        input,
+        init: { ...init, headers },
+    };
+}
+
+export function initializeApiInterceptors(): void {
+    if (typeof window === "undefined" || globalFetchInterceptorsInitialized) return;
+
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const requestUrl = resolveRequestUrl(input);
+        const targetIsApi = isApiRequest(requestUrl);
+        const prepared = withAuthHeader(input, init);
+
+        try {
+            const response = await nativeFetch(prepared.input, prepared.init);
+
+            if (targetIsApi && (response.status === 502 || response.status === 503)) {
+                markBackendOffline();
+            } else if (targetIsApi) {
+                clearBackendOffline();
+            }
+
+            if (response.status === 401 && typeof window !== "undefined") {
+                localStorage.removeItem("plot_auth_token");
                 window.location.href = "/login";
             }
+
+            return response;
+        } catch (error: unknown) {
+            const errorName = getErrorName(error);
+            if (targetIsApi && (errorName === "TypeError" || errorName === "AbortError")) {
+                markBackendOffline();
+            }
+            throw error;
+        }
+    };
+
+    globalFetchInterceptorsInitialized = true;
+}
+
+/**
+ * Fetch wrapper that adds explicit timeout support.
+ * Default timeout is 10000ms.
+ */
+export async function fetchWithTimeout(
+    resource: RequestInfo | URL,
+    options: RequestInit & { timeout?: number } = {}
+) {
+    const { timeout = 10000, ...rest } = options;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await fetch(resource, {
+            ...rest,
+            signal: controller.signal,
+        });
+
+        if (response.status === 502 || response.status === 503) {
+            markBackendOffline();
+        } else {
+            clearBackendOffline();
         }
 
         return response;
-    } catch (error: any) {
-        clearTimeout(id);
-        if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+        const errorName = getErrorName(error);
+        if (errorName === "AbortError") {
+            markBackendOffline("Backend Offline: Request timed out.");
             throw new Error(`Request timed out after ${timeout}ms`);
         }
+
+        if (errorName === "TypeError") {
+            markBackendOffline();
+        }
         throw error;
+    } finally {
+        clearTimeout(timeoutId);
     }
+}
+
+if (typeof window !== "undefined") {
+    initializeApiInterceptors();
 }

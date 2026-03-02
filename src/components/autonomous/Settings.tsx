@@ -325,9 +325,13 @@ export default function Settings() {
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="text"
+                                                name="workspace-instance-name"
                                                 value={appNameInput}
                                                 onChange={(e) => setAppNameInput(e.target.value)}
                                                 onKeyDown={(e) => e.key === "Enter" && handleSaveWorkspace()}
+                                                autoComplete="off"
+                                                data-lpignore="true"
+                                                data-1p-ignore
                                                 placeholder="PlotAI Workspace"
                                                 className="flex-1 bg-gray-50 dark:bg-[#1A1A1A] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm outline-none ring-0 placeholder:text-gray-400 transition-colors"
                                             />
@@ -556,10 +560,13 @@ export default function Settings() {
                                                                 <>
                                                                     <input
                                                                         type={isVisible ? "text" : "password"}
+                                                                        name={`vault-${keyName.toLowerCase()}`}
                                                                         value={value}
                                                                         onChange={(e) => handleInputChange(keyName, e.target.value)}
+                                                                        autoComplete="new-password"
                                                                         placeholder="Paste your key here..."
                                                                         className="w-full bg-white dark:bg-[#000000] text-black dark:text-white border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 text-sm outline-none ring-0 focus:border-black dark:focus:border-white placeholder:text-gray-400 transition-colors"
+                                                                        data-lpignore="true"
                                                                         data-1p-ignore
                                                                     />
                                                                     <button

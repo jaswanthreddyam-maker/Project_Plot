@@ -83,8 +83,6 @@ interface UIState {
     setSettingsOpen: (open: boolean) => void;
 
     // ── Unlock Modal ─────────────────────────────────────
-    unlockModalOpen: boolean;
-    setUnlockModalOpen: (open: boolean) => void;
 
     // ── Ollama Setup Modal ───────────────────────────────
     ollamaModalOpen: boolean;
@@ -207,9 +205,6 @@ export const useUIStore = create<UIState>()(
             // ── Modals ───────────────────────────────────────────
             settingsOpen: false,
             setSettingsOpen: (open) => set({ settingsOpen: open }),
-
-            unlockModalOpen: false,
-            setUnlockModalOpen: (open) => set({ unlockModalOpen: open }),
 
             ollamaModalOpen: false,
             setOllamaModalOpen: (open) => set({ ollamaModalOpen: open }),
@@ -362,10 +357,12 @@ export const useUIStore = create<UIState>()(
         }),
         {
             name: 'plot-ui-storage', // key in localStorage
-            onRehydrateStorage: (state) => {
-                return (state, error) => {
-                    if (state) {
-                        state.setHasHydrated(true);
+            onRehydrateStorage: () => {
+                return (rehydratedState) => {
+                    if (rehydratedState) {
+                        // Tool execution is ephemeral and must not survive app reloads.
+                        rehydratedState.setToolExecutionEnd();
+                        rehydratedState.setHasHydrated(true);
                     }
                 };
             },
@@ -374,10 +371,6 @@ export const useUIStore = create<UIState>()(
                 activeWorkspace: state.activeWorkspace,
                 activeAmpRoute: state.activeAmpRoute,
                 llmConnections: state.llmConnections,
-                isToolExecuting: state.isToolExecuting,
-                toolTaskId: state.toolTaskId,
-                toolExecutionId: state.toolExecutionId,
-                toolExecutionState: state.toolExecutionState,
                 // Add API Keys and Vault info so they safely hydrate after initial SSR pass
                 hasVaultPassword: state.hasVaultPassword,
                 vaultEmail: state.vaultEmail,

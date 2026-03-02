@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore, AgentConfig, TaskConfig } from "@/store/uiStore";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Brain, Calendar, User, Wrench, Play, ArrowRightLeft, Repeat, UserCheck, LayoutTemplate } from "lucide-react";
 import { ApprovalOverlay } from "./ApprovalOverlay";
@@ -369,10 +369,10 @@ export default function CrewStudio() {
     const handleApprove = async () => {
         if (!approvalExecutionId) return;
         try {
-            await fetch(`${API_BASE}/api/approval/confirm`, {
+            await fetchWithTimeout(`${API_BASE}/api/approval/confirm`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ execution_id: approvalExecutionId })
+                body: JSON.stringify({ execution_id: approvalExecutionId }),
             });
             setIsApprovalOpen(false);
             setToolExecutionState("Approval granted. Resuming...");
@@ -384,10 +384,10 @@ export default function CrewStudio() {
     const handleDeny = async () => {
         if (!approvalExecutionId) return;
         try {
-            await fetch(`${API_BASE}/api/approval/deny`, {
+            await fetchWithTimeout(`${API_BASE}/api/approval/deny`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ execution_id: approvalExecutionId })
+                body: JSON.stringify({ execution_id: approvalExecutionId }),
             });
             setIsApprovalOpen(false);
             setToolExecutionState("Action denied. Halted.");
@@ -400,10 +400,10 @@ export default function CrewStudio() {
         if (!toolTaskId || !interventionInput.trim()) return;
 
         try {
-            await fetch(`${API_BASE}/api/resume`, {
+            await fetchWithTimeout(`${API_BASE}/api/resume`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ task_id: toolTaskId, feedback: interventionInput })
+                body: JSON.stringify({ task_id: toolTaskId, feedback: interventionInput }),
             });
             setIsInterventionRequired(false);
             setInterventionInput("");
@@ -449,7 +449,7 @@ export default function CrewStudio() {
         console.log(`[Execute Flow] Sending request to: ${API_BASE}/api/tools/execute`, payload);
 
         try {
-            const res = await fetch(`${API_BASE}/api/tools/execute`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/tools/execute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -491,10 +491,10 @@ export default function CrewStudio() {
                 agents: agentConfig,
                 tasks: taskConfig
             };
-            const res = await fetch(`${API_BASE}/api/tools/schedule`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/tools/schedule`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ interval: scheduleInterval, arguments: payload })
+                body: JSON.stringify({ interval: scheduleInterval, arguments: payload }),
             });
             if (res.ok) {
                 setShowScheduleModal(false);
@@ -531,10 +531,10 @@ export default function CrewStudio() {
                 }
             };
 
-            const res = await fetch(`${API_BASE}/api/templates/save`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/templates/save`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
             if (res.ok) {
                 setShowSaveTemplateModal(false);
@@ -644,8 +644,12 @@ export default function CrewStudio() {
                                         <div>
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Template Name</label>
                                             <input
+                                                name="template-name"
                                                 value={saveTemplateData.name}
                                                 onChange={(e) => setSaveTemplateData({ ...saveTemplateData, name: e.target.value })}
+                                                autoComplete="off"
+                                                data-lpignore="true"
+                                                data-1p-ignore
                                                 placeholder="e.g. Viral Thread Writer"
                                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none ring-0 dark:text-white"
                                             />
@@ -748,9 +752,13 @@ export default function CrewStudio() {
                                         <input
                                             key={currentAgent.id}
                                             autoFocus
+                                            name={`agent-role-${currentAgent.id}`}
                                             onFocus={(e) => e.target.select()}
                                             value={currentAgent.role}
                                             onChange={(e) => updateAgent({ role: e.target.value })}
+                                            autoComplete="off"
+                                            data-lpignore="true"
+                                            data-1p-ignore
                                             className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-2 text-sm focus:outline-none ring-0 dark:text-white"
                                         />
                                     </div>

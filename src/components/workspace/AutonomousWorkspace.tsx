@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUIStore } from "@/store/uiStore";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 const AGENTS = [
@@ -72,7 +72,7 @@ export default function AutonomousWorkspace() {
                         eventSource.close();
                         break;
                 }
-            } catch (err) {
+            } catch {
                 setChunks(prev => [...prev, event.data]);
             }
         };
@@ -100,7 +100,7 @@ export default function AutonomousWorkspace() {
         setError(null);
 
         try {
-            const res = await fetch(`${API_BASE}/api/tools/execute`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/tools/execute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -199,9 +199,13 @@ export default function AutonomousWorkspace() {
                         <div className="flex gap-2">
                             <input
                                 type="text"
+                                name="mission-objective"
                                 value={objective}
                                 onChange={(e) => setObjective(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleRun()}
+                                autoComplete="off"
+                                data-lpignore="true"
+                                data-1p-ignore
                                 placeholder="E.g., Research recent advancements in LLM reasoning..."
                                 className="flex-1 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white transition-shadow"
                                 disabled={isToolExecuting || isStarting}

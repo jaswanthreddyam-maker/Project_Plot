@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getSession } from "next-auth/react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, DollarSign, Zap, ShieldCheck, TrendingUp, BarChart3, Users, Wrench } from "lucide-react";
@@ -54,13 +53,10 @@ export function UsagePage() {
     const fetchUsage = useCallback(async () => {
         setOfflineError(false);
         try {
-            // Explicitly retrieve token
+            // Retrieve token from localStorage
             let token = "";
-            const session = await getSession();
-            if (session && session.user && session.user.id) {
-                token = session.user.id;
-            } else if (typeof window !== "undefined") {
-                token = localStorage.getItem("token") || "";
+            if (typeof window !== "undefined") {
+                token = localStorage.getItem("plot_auth_token") || "";
             }
 
             const res = await fetch(`${API_BASE}/api/analytics/usage`, {

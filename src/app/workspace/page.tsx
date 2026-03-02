@@ -7,11 +7,12 @@
  */
 "use client";
 
-import { useMemo, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useMemo, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useUIStore, ProviderOption } from "@/store/uiStore";
 import { useChatStore, ProviderImageState, ResponseSet } from "@/store/chatStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { ampRouteFromPathname, isWorkspaceSubRoute } from "@/lib/workspaceRoutes";
 import StreamColumn from "@/components/workspace/StreamColumn";
 import PromptInput from "@/components/workspace/PromptInput";
 import ProfileDropdown from "@/components/workspace/ProfileDropdown";
@@ -22,21 +23,16 @@ import OtherToolsToggle from "@/components/tools/OtherToolsToggle";
 import OtherToolsMenu from "@/components/tools/OtherToolsMenu";
 import ToolExecutionStream from "@/components/tools/ToolExecutionStream";
 import CrewStudio from "@/components/autonomous/CrewStudio";
-import LLMConnections from "@/components/autonomous/LLMConnections";
 import ToolsIntegrations from "@/components/autonomous/ToolsIntegrations";
 import Traces from "@/components/autonomous/Traces";
 import Automations from "@/components/autonomous/Automations";
+import LLMConnections from "@/components/autonomous/LLMConnections";
 import EnvVariables from "@/components/autonomous/EnvVariables";
 import Settings from "@/components/autonomous/Settings";
 import Templates from "@/components/autonomous/Templates";
 import AgentsRepository from "@/components/autonomous/AgentsRepository";
 import { UsagePage } from "@/components/autonomous/Usage";
 import { BillingPage } from "@/components/autonomous/Billing";
-import {
-    AutomationsPage as AutomationsPlaceholder,
-    SettingsPage,
-    ToolsIntegrationsPage
-} from "@/components/layout/PlaceholderPages";
 
 const ALL_PROVIDERS: { id: ProviderOption; label: string }[] = [
     { id: "openai", label: "Openai" },
@@ -162,6 +158,7 @@ function ImageProviderCard({
 }
 
 export default function WorkspacePage() {
+    const pathname = usePathname();
     const isMobile = useIsMobile();
     const activeAmpRoute = useUIStore((s) => s.activeAmpRoute);
     const activeProviders = useUIStore((s) => s.activeProviders);
@@ -169,7 +166,11 @@ export default function WorkspacePage() {
     const toggleProvider = useUIStore((s) => s.toggleProvider);
     const comparisonMode = useUIStore((s) => s.comparisonMode);
     const responseSets = useChatStore((s) => s.responseSets);
-    const { data: session } = useSession();
+    const [hasToken] = useState(
+        () => typeof window !== "undefined" && !!localStorage.getItem("plot_auth_token")
+    );
+    const effectiveAmpRoute = ampRouteFromPathname(pathname) || activeAmpRoute;
+    const forceAutonomousRoute = isWorkspaceSubRoute(pathname);
 
     const AVAILABLE_PROVIDERS = useMemo(() => {
         if (isMobile) return ALL_PROVIDERS.filter((p) => p.id !== "ollama");
@@ -200,14 +201,15 @@ export default function WorkspacePage() {
 
     /* ═══ Route-based content rendering ═══ */
     const renderRouteContent = () => {
-        switch (activeAmpRoute) {
+        switch (effectiveAmpRoute) {
             case "agents-repository":
                 return <AgentsRepository />;
             case "templates":
-
                 return <Templates />;
             case "llm-connections":
+                return <LLMConnections />;
             case "environment-variables":
+                return <EnvVariables />;
             case "settings":
                 return <Settings />;
             case "automations":
@@ -337,12 +339,11 @@ export default function WorkspacePage() {
     /* ═══ Workspace mode & header logic ═══ */
     const activeWorkspace = useUIStore((s) => s.activeWorkspace);
     const setActiveWorkspace = useUIStore((s) => s.setActiveWorkspace);
-    const setActiveAmpRoute = useUIStore((s) => s.setActiveAmpRoute);
     const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
     const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
 
     /* ── CHAT MODE ── */
-    if (activeWorkspace === "chat") {
+    if (!forceAutonomousRoute && activeWorkspace === "chat") {
         return (
             <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200" suppressHydrationWarning>
                 {/* Chat Header */}
@@ -371,7 +372,7 @@ export default function WorkspacePage() {
                             <OtherToolsMenu />
                         </div>
                         <ComparisonToggle />
-                        {session?.user ? (
+                        {hasToken ? (
                             <ProfileDropdown />
                         ) : (
                             <a href="/login" className="px-4 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
@@ -520,6 +521,7 @@ export default function WorkspacePage() {
 
             {/* Route-based content */}
             {renderRouteContent()}
+            <ToolExecutionStream />
         </div>
     );
 }

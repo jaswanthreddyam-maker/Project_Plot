@@ -7,11 +7,12 @@
  */
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { useMentorStore } from "./MentorStoreProvider";
 import { useUIStore } from "@/store/uiStore";
 import { useAssistantStore } from "@/store/assistantStore";
+import { checkOllamaStatus } from "@/lib/ollamaPing";
 import CodeViewer from "./CodeViewer";
 import ExplanationPanel from "./ExplanationPanel";
 
@@ -48,6 +49,9 @@ export default function MentorWorkspace({ onClose }: { onClose: () => void }) {
     const startAnalysis = useMentorStore((s) => s.startAnalysis);
     const setResult = useMentorStore((s) => s.setResult);
     const setError = useMentorStore((s) => s.setError);
+    const openAssistantChat = useAssistantStore((s) => s.openAssistantChat);
+    const openAssistantModal = useAssistantStore((s) => s.openAssistantModal);
+    const [isCheckingAssistant, setIsCheckingAssistant] = useState(false);
 
     const apiKeys = useUIStore((s) => s.apiKeys);
 
@@ -96,6 +100,19 @@ export default function MentorWorkspace({ onClose }: { onClose: () => void }) {
         }
     }, [code, language, selectedProvider, apiKeys, startAnalysis, setResult, setError]);
 
+    const handleOpenAssistant = useCallback(async () => {
+        if (isCheckingAssistant) return;
+
+        setIsCheckingAssistant(true);
+        const isOnline = await checkOllamaStatus();
+        if (isOnline) {
+            openAssistantChat();
+        } else {
+            openAssistantModal();
+        }
+        setIsCheckingAssistant(false);
+    }, [isCheckingAssistant, openAssistantChat, openAssistantModal]);
+
     return (
         <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors">
             {/* ── Top Bar ────────────────────────────────────── */}
@@ -140,10 +157,16 @@ export default function MentorWorkspace({ onClose }: { onClose: () => void }) {
 
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => useAssistantStore.getState().setAssistantActive(true)}
-                        className="px-3 py-1.5 text-sm font-medium border border-gray-200 dark:border-[#262626] text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors"
+                        onClick={() => {
+                            void handleOpenAssistant();
+                        }}
+                        disabled={isCheckingAssistant}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-200 dark:border-[#262626] text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors disabled:opacity-70"
                         title="Open Assistant"
                     >
+                        {isCheckingAssistant && (
+                            <span className="inline-block h-3 w-3 animate-spin rounded-full border border-current border-r-transparent" />
+                        )}
                         Assistant
                     </button>
 

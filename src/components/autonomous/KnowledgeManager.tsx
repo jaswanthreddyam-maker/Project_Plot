@@ -145,8 +145,12 @@ export default function KnowledgeManager() {
                     <div className="flex gap-2">
                         <input
                             type="url"
+                            name="knowledge-source-url"
                             value={urlInput}
                             onChange={(e) => setUrlInput(e.target.value)}
+                            autoComplete="off"
+                            data-lpignore="true"
+                            data-1p-ignore
                             placeholder="https://docs.crewai.com"
                             className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:text-white"
                             onKeyDown={(e) => {

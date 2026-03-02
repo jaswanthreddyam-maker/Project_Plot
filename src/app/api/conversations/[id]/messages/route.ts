@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getAuthenticatedUserId } from "@/lib/serverAuth";
 
 interface IncomingMessage {
     role: "user" | "assistant";
@@ -47,15 +47,15 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
+        const userId = await getAuthenticatedUserId(_req);
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { id } = await params;
 
         const conversation = await prisma.conversation.findFirst({
-            where: { id, userId: session.user.id },
+            where: { id, userId },
         });
 
         if (!conversation) {
@@ -85,15 +85,15 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
+        const userId = await getAuthenticatedUserId(req);
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { id } = await params;
 
         const conversation = await prisma.conversation.findFirst({
-            where: { id, userId: session.user.id },
+            where: { id, userId },
         });
 
         if (!conversation) {

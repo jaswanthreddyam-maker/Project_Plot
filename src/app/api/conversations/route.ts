@@ -5,18 +5,18 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getAuthenticatedUserId } from "@/lib/serverAuth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
+        const userId = await getAuthenticatedUserId(req);
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const conversations = await prisma.conversation.findMany({
-            where: { userId: session.user.id },
+            where: { userId },
             orderBy: { updatedAt: "desc" },
             select: { id: true, title: true, updatedAt: true },
             take: 50,
@@ -34,8 +34,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
+        const userId = await getAuthenticatedUserId(req);
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
         const conversation = await prisma.conversation.create({
             data: {
-                userId: session.user.id,
+                userId,
                 title,
             },
         });
@@ -60,15 +60,15 @@ export async function POST(req: NextRequest) {
     }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
+        const userId = await getAuthenticatedUserId(req);
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const result = await prisma.conversation.deleteMany({
-            where: { userId: session.user.id },
+            where: { userId },
         });
 
         return NextResponse.json({ deleted: result.count });

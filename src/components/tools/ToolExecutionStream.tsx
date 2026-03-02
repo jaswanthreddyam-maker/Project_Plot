@@ -17,9 +17,11 @@ export default function ToolExecutionStream() {
 
     const [chunks, setChunks] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const NO_ACTIVITY_TIMEOUT_MS = 40000;
 
     // Using a ref for the timeout ensures we can cancel it if the component unmounts
     const resetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Clean up function to reset everything
     const handleReset = useCallback(() => {
@@ -27,6 +29,7 @@ export default function ToolExecutionStream() {
         setChunks([]);
         setError(null);
         if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
+        if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
     }, [setToolExecutionEnd]);
 
     useEffect(() => {
@@ -34,12 +37,26 @@ export default function ToolExecutionStream() {
 
         // Clear any lingering resets from previous runs
         if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
-        setError(null);
-        setChunks([]);
+        if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
 
         const eventSource = new EventSource(`${API_BASE}/stream/${toolTaskId}`);
+        const resetInactivityWatchdog = () => {
+            if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
+            inactivityTimeoutRef.current = setTimeout(() => {
+                setError("No worker activity detected. Start Celery worker and retry.");
+                setToolExecutionState("Stalled");
+                eventSource.close();
+                resetTimeoutRef.current = setTimeout(handleReset, 6000);
+            }, NO_ACTIVITY_TIMEOUT_MS);
+        };
+        resetInactivityWatchdog();
+        eventSource.onopen = () => {
+            setError(null);
+            setChunks([]);
+        };
 
         eventSource.onmessage = (event) => {
+            resetInactivityWatchdog();
             try {
                 const data = JSON.parse(event.data);
 
@@ -54,6 +71,7 @@ export default function ToolExecutionStream() {
 
                     case "completed":
                         setToolExecutionState("Completed!");
+                        if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
                         resetTimeoutRef.current = setTimeout(handleReset, 2500);
                         eventSource.close(); // Close immediately on completion
                         break;
@@ -61,18 +79,19 @@ export default function ToolExecutionStream() {
                     case "error":
                         setError(data.message || "Execution failed");
                         setToolExecutionState("Failed");
+                        if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
                         resetTimeoutRef.current = setTimeout(handleReset, 5000);
                         eventSource.close();
                         break;
                 }
-            } catch (err) {
+            } catch {
                 // Fallback for non-JSON strings
                 setChunks(prev => [...prev.slice(-4), event.data]);
             }
         };
 
-        eventSource.onerror = (err) => {
-            console.error("SSE connection error", err);
+        eventSource.onerror = () => {
+            console.error("SSE connection error");
             setError("Connection lost. Retrying...");
             // We don't close here because EventSource auto-retries by default
         };
@@ -80,6 +99,7 @@ export default function ToolExecutionStream() {
         return () => {
             eventSource.close();
             if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
+            if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
         };
     }, [isToolExecuting, toolTaskId, setToolExecutionState, handleReset]);
 

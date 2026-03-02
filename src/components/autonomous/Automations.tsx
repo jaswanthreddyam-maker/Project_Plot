@@ -231,8 +231,12 @@ export default function Automations() {
                                 <label className="block text-xs font-semibold text-slate-300 mb-1">Configuration Name</label>
                                 <input
                                     type="text"
+                                    name="automation-config-name"
                                     value={crewName}
                                     onChange={e => setCrewName(e.target.value)}
+                                    autoComplete="off"
+                                    data-lpignore="true"
+                                    data-1p-ignore
                                     className="w-full bg-[#111] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                     required
                                 />

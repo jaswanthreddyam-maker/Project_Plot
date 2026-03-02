@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useUIStore, LLMConnectionEntry } from "@/store/uiStore";
+import { useUIStore } from "@/store/uiStore";
 import { API_BASE } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -113,8 +113,19 @@ export default function LLMConnections() {
                 </div>
 
                 {/* ── Add New Connection Form ── */}
-                <div className="mt-8 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
+                <form
+                    className="mt-8 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6"
+                    autoComplete="off"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleSave();
+                    }}
+                >
                     <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Add New Connection</h3>
+                    <div className="hidden" aria-hidden="true">
+                        <input type="text" name="fake-username" autoComplete="username" tabIndex={-1} />
+                        <input type="password" name="fake-password" autoComplete="current-password" tabIndex={-1} />
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         {/* Provider */}
@@ -138,8 +149,12 @@ export default function LLMConnections() {
                             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Alias</label>
                             <input
                                 type="text"
+                                name="llm-connection-alias"
                                 value={alias}
                                 onChange={(e) => setAlias(e.target.value)}
+                                autoComplete="off"
+                                data-lpignore="true"
+                                data-1p-ignore
                                 placeholder="e.g. production-key"
                                 className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400"
                             />
@@ -150,8 +165,12 @@ export default function LLMConnections() {
                             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">API Key</label>
                             <input
                                 type="password"
+                                name="llm-connection-api-key"
                                 value={apiKey}
                                 onChange={(e) => setApiKey(e.target.value)}
+                                autoComplete="new-password"
+                                data-lpignore="true"
+                                data-1p-ignore
                                 placeholder="sk-..."
                                 className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400"
                             />
@@ -167,13 +186,13 @@ export default function LLMConnections() {
                     )}
 
                     <button
-                        onClick={handleSave}
+                        type="submit"
                         disabled={saving || !apiKey.trim()}
                         className="px-6 py-2.5 bg-black text-white dark:bg-white dark:text-black border border-black dark:border-white hover:opacity-90 text-sm font-semibold rounded-lg disabled:opacity-50 transition-all shadow-sm focus:outline-none focus:ring-0 save-btn"
                     >
                         {saving ? "Saving..." : "Save Connection"}
                     </button>
-                </div>
+                </form>
 
                 {/* ── Available Connections ── */}
                 <div className="mt-8">

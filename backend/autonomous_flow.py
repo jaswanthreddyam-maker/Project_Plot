@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 import datetime
+import uuid
 from crewai.flow.flow import Flow, start, listen
 from crewai.flow.persistence.decorators import persist
 from crewai import Agent, Task, Crew, Process, LLM
@@ -14,7 +15,7 @@ from chromadb.config import Settings
 from cryptography.fernet import Fernet
 
 
-redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0"))
+redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0"))
 SENSITIVE_TOOLS = ["Delete", "Shell", "FileWrite", "GitHub", "Asana", "Jira", "GitHub Action Tool"]
 
 class HITLToolWrapper:
@@ -32,7 +33,7 @@ class HITLToolWrapper:
             print(f"[HITL] Intercepting sensitive tool: {self.name}")
             
             # 1. Create DB record for approval
-            import uuid, json
+            import json
             db = SessionLocal()
             approval_id = str(uuid.uuid4())
             try:
@@ -146,7 +147,8 @@ class PlotAutonomousFlow(Flow[PlotState]):
             
         crew_agents = []
         for ac in self.state.agents_config:
-            provider_str = ac.get("provider", "openai").lower()
+            requested_provider = (ac.get("provider") or "").lower()
+            provider_str = requested_provider or ("openai" if decrypted_keys.get("OPENAI_API_KEY") else "ollama")
             model_name = global_config.default_model
             api_key = decrypted_keys.get("OPENAI_API_KEY")
 
@@ -162,6 +164,11 @@ class PlotAutonomousFlow(Flow[PlotState]):
             elif provider_str == "grok":
                 model_name = "xai/grok-beta"
                 api_key = decrypted_keys.get("XAI_API_KEY")
+
+            # If OpenAI is selected but no key is available, fall back to local Ollama.
+            if provider_str == "openai" and not api_key:
+                provider_str = "ollama"
+                model_name = "ollama/llama3"
                 
             # Explicitly pass api_key and temperature
             llm_kwargs = {
@@ -255,23 +262,36 @@ class PlotAutonomousFlow(Flow[PlotState]):
             except Exception as e:
                 print(f"[Telemetry Error] Failed to write trace: {e}")
 
-        crew = Crew(
-            agents=crew_agents,
-            tasks=crew_tasks,
-            process=Process.sequential,
-            verbose=True,
-            step_callback=trace_step,
-            # Enabling Memory Systems (Short-term, Long-term, Entity)
-            memory=True,
-            embedder={
+        openai_embedder_key = (
+            decrypted_keys.get("OPENAI_API_KEY")
+            or os.environ.get("OPENAI_API_KEY")
+            or os.environ.get("CHROMA_OPENAI_API_KEY")
+        )
+        memory_enabled = bool(global_config.memory_enabled and openai_embedder_key)
+
+        if openai_embedder_key:
+            os.environ["CHROMA_OPENAI_API_KEY"] = openai_embedder_key
+
+        crew_kwargs = {
+            "agents": crew_agents,
+            "tasks": crew_tasks,
+            "process": Process.sequential,
+            "verbose": True,
+            "step_callback": trace_step,
+            # Assigning the knowledge sources to the entire Crew context instead as fallback
+            "knowledge_sources": self.state.knowledge_sources if self.state.knowledge_sources else None,
+            "memory": memory_enabled,
+        }
+        if memory_enabled:
+            crew_kwargs["embedder"] = {
                 "provider": "openai",
                 "config": {
-                    "model": "text-embedding-3-small"
-                }
-            },
-            # Assigning the knowledge sources to the entire Crew context instead as fallback
-            knowledge_sources=self.state.knowledge_sources if self.state.knowledge_sources else None
-        )
+                    "api_key": openai_embedder_key,
+                    "model": "text-embedding-3-small",
+                },
+            }
+
+        crew = Crew(**crew_kwargs)
         
         self.state.status = "Executing core workflow logic..."
         print(f"[PlotAutonomousFlow] Crew Kickoff Started")
@@ -343,7 +363,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
                 finally:
                     db.close()
                 
-                import utils.metrics as metrics
+                import backend.utils.metrics as metrics
                 with get_db_session() as ds:
                     metrics.log_usage(ds, self.state.execution_id, self.state.user_id, model_used, prompt_tokens, completion_tokens, status=status_val)
             except Exception as usage_err:

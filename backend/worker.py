@@ -5,14 +5,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Explicitly configure Celery with REDIS
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 
 celery_app = Celery(
     "plot_worker",
     broker=CELERY_BROKER_URL,
     backend=CELERY_RESULT_BACKEND,
-    include=['tools.execute_tool_task'] # We will define our tasks here
+    include=['backend.tools.execute_tool_task'] # We will define our tasks here
 )
 
 celery_app.conf.update(
