@@ -1,5 +1,5 @@
-import PlotStudioEditor from "@/components/plot-studio/PlotStudioEditor";
+import PlotStudioEditorClient from "@/components/plot-studio/PlotStudioEditorClient";
 
 export default function PlotStudioPage() {
-    return <PlotStudioEditor />;
+    return <PlotStudioEditorClient />;
 }

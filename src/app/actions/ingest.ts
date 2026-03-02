@@ -64,7 +64,6 @@ export async function ingestDocument(
         );
 
         const id = rows[0]?.id?.toString() ?? "unknown";
-        console.log(`[ingest] Document inserted with id=${id}`);
 
         return { success: true, documentId: id };
     } catch (error) {
@@ -91,8 +90,6 @@ export async function ingestDocuments(
             errors.push(result.error ?? "Unknown error");
         }
     }
-
-    console.log(`[ingest] Batch complete: ${succeeded}/${documents.length} succeeded`);
 
     return {
         total: documents.length,

@@ -6,20 +6,17 @@
  */
 "use client";
 
-import { createContext, useContext, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { createMentorStore, type MentorStore, type MentorState } from "@/store/mentorStore";
 
 const MentorStoreContext = createContext<MentorStore | null>(null);
 
 export function MentorStoreProvider({ children }: { children: ReactNode }) {
-    const storeRef = useRef<MentorStore | null>(null);
-    if (!storeRef.current) {
-        storeRef.current = createMentorStore();
-    }
+    const [store] = useState<MentorStore>(() => createMentorStore());
 
     return (
-        <MentorStoreContext.Provider value={storeRef.current}>
+        <MentorStoreContext.Provider value={store}>
             {children}
         </MentorStoreContext.Provider>
     );

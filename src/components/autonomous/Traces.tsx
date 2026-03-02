@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
 import { Brain, Terminal, RefreshCw } from "lucide-react";
 
 interface TraceRun {
@@ -27,28 +27,37 @@ export default function Traces() {
     const [traceDetails, setTraceDetails] = useState<TraceDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingDetails, setLoadingDetails] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [detailsError, setDetailsError] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchRuns();
-    }, []);
-
-    const fetchRuns = async () => {
+    const fetchRuns = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_BASE}/api/traces`);
-            if (res.ok) {
-                const data = await res.json();
-                setRuns(data);
-                if (data.length > 0) {
-                    setSelectedRun(data[0].execution_id);
-                }
+            setError(null);
+            const res = await fetchWithTimeout(`${API_BASE}/api/traces`);
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to fetch traces (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (error) {
-            console.error("Error fetching trace runs:", error);
+            const data = (await res.json()) as TraceRun[];
+            setRuns(Array.isArray(data) ? data : []);
+            if (Array.isArray(data) && data.length > 0) {
+                setSelectedRun(data[0].execution_id);
+            }
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Error fetching trace runs.";
+            setError(message);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        void fetchRuns();
+    }, [fetchRuns]);
 
     useEffect(() => {
         if (!selectedRun) return;
@@ -56,21 +65,31 @@ export default function Traces() {
         const fetchDetails = async () => {
             try {
                 setLoadingDetails(true);
-                const res = await fetch(`${API_BASE}/api/traces/${selectedRun}`);
-                if (res.ok) {
-                    const data = await res.json();
-
-                    // Add mock `is_tool_call` logic for visual demonstration
-                    // In a real app the backend sends this flag
-                    const enhancedData = data.map((d: any) => ({
-                        ...d,
-                        is_tool_call: d.task_description.toLowerCase().includes("using tool") || d.task_description.toLowerCase().includes("executing")
-                    }));
-
-                    setTraceDetails(enhancedData);
+                setDetailsError(null);
+                const res = await fetchWithTimeout(`${API_BASE}/api/traces/${selectedRun}`);
+                if (!res.ok) {
+                    const detail = await readErrorMessage(
+                        res,
+                        `Failed to fetch trace details (HTTP ${res.status}).`
+                    );
+                    throw new Error(detail);
                 }
-            } catch (error) {
-                console.error("Error fetching trace details:", error);
+                const data = (await res.json()) as TraceDetail[];
+
+                // Add mock `is_tool_call` logic for visual demonstration
+                // In a real app the backend sends this flag
+                const enhancedData = data.map((detail) => ({
+                    ...detail,
+                    is_tool_call:
+                        detail.task_description.toLowerCase().includes("using tool")
+                        || detail.task_description.toLowerCase().includes("executing"),
+                }));
+
+                setTraceDetails(enhancedData);
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : "Error fetching trace details.";
+                setDetailsError(message);
+                setTraceDetails([]);
             } finally {
                 setLoadingDetails(false);
             }
@@ -95,6 +114,11 @@ export default function Traces() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+                    {error && (
+                        <div className="m-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300">
+                            {error}
+                        </div>
+                    )}
                     {loading ? (
                         <div className="p-4 space-y-3">
                             {[1, 2, 3, 4, 5].map((i) => (
@@ -167,6 +191,11 @@ export default function Traces() {
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-[#262626] scrollbar-track-transparent pb-32">
+                            {detailsError && (
+                                <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300">
+                                    {detailsError}
+                                </div>
+                            )}
                             {traceDetails.length === 0 && !loadingDetails ? (
                                 <div className="h-full flex flex-col items-center justify-center font-mono text-slate-600 gap-4">
                                     <Terminal size={32} className="opacity-50" />

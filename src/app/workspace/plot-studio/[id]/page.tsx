@@ -1,10 +1,10 @@
-import PlotStudioEditor from "@/components/plot-studio/PlotStudioEditor";
+import PlotStudioEditorClient from "@/components/plot-studio/PlotStudioEditorClient";
 
 interface PlotStudioProjectPageProps {
-    params: Promise<{ id: string }>;
+    params: { id: string };
 }
 
-export default async function PlotStudioProjectPage({ params }: PlotStudioProjectPageProps) {
-    const { id } = await params;
-    return <PlotStudioEditor projectId={id} />;
+export default function PlotStudioProjectPage({ params }: PlotStudioProjectPageProps) {
+    const { id } = params;
+    return <PlotStudioEditorClient projectId={id} />;
 }

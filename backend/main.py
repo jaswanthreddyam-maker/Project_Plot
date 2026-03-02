@@ -400,7 +400,7 @@ async def get_usage_analytics(current_user: str = Depends(get_current_user)):
                 "tokens": int(float(d.prompt or 0)) + int(float(d.completion or 0))
             })
 
-        # 4. Task Throughput (placeholder or actual trace count)
+        # 4. Task Throughput by day
         task_throughput = db.query(
             func.date(AgentTrace.timestamp).label('day'),
             func.count(AgentTrace.id).label('count')
@@ -409,12 +409,22 @@ async def get_usage_analytics(current_user: str = Depends(get_current_user)):
          .order_by(func.date(AgentTrace.timestamp)).all()
 
         task_chart = [{"date": t.day, "tasks": t.count} for t in task_throughput]
+        supported_tools = (
+            "task",
+            "agent",
+            "classifier",
+            "summarizer",
+            "webhook",
+            "slack action",
+            "http request",
+            "data mapper",
+        )
 
         return {
             "summary": {
                 "total_cost": round(float(total_cost), 4),
                 "total_agents": total_agents,
-                "total_tools": 8, # Placeholder for tools catalog size
+                "total_tools": len(supported_tools),
                 "success_rate": round(success_rate, 1),
                 "total_runs": total_runs
             },

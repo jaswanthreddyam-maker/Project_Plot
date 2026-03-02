@@ -46,10 +46,10 @@ $devPortPids = netstat -ano -p tcp |
     Where-Object { $_ -match "^\d+$" } |
     Sort-Object -Unique
 
-foreach ($pid in $devPortPids) {
-    $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+foreach ($portOwnerPid in $devPortPids) {
+    $proc = Get-Process -Id $portOwnerPid -ErrorAction SilentlyContinue
     if ($proc -and ($proc.ProcessName -eq "node" -or $proc.ProcessName -eq "python")) {
-        Stop-Process -Id $pid -Force
+        Stop-Process -Id $portOwnerPid -Force
     }
 }
 

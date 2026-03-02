@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, Trash2, ChevronDown, Database, LayoutTemplate, Moon, Sun, AlertTriangle, CheckCircle, Lock } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, KeyRound, Search, Code2, BrainCircuit, ChevronDown, Database, LayoutTemplate, Moon, Sun, Lock } from "lucide-react";
 import { useTheme } from "next-themes";
-import { API_BASE, fetchWithTimeout } from "@/lib/api";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 import VaultPinModal from "./VaultPinModal";
 
 interface VaultKey {
@@ -51,7 +52,6 @@ export default function Settings() {
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
 
-    const [vaultKeys, setVaultKeys] = useState<VaultKey[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // State for inputs
@@ -66,7 +66,6 @@ export default function Settings() {
         temperature: 0.7,
         memory_enabled: true
     });
-    const [savingConfig, setSavingConfig] = useState(false);
     const [showMemoryConfirm, setShowMemoryConfirm] = useState(false);
     const [clearingMemory, setClearingMemory] = useState(false);
 
@@ -75,9 +74,6 @@ export default function Settings() {
     const [appNameInput, setAppNameInput] = useState("");
     const [savingWorkspace, setSavingWorkspace] = useState(false);
     const [workspaceSuccess, setWorkspaceSuccess] = useState(false);
-
-    // Toast State
-    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     // Vault Inline States
     const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
@@ -107,12 +103,7 @@ export default function Settings() {
         };
     }, [isVaultUnlocked]);
 
-    useEffect(() => {
-        setMounted(true);
-        fetchSettingsData();
-    }, []);
-
-    const fetchSettingsData = async () => {
+    const fetchSettingsData = useCallback(async () => {
         setIsLoading(true);
         try {
             // Check server health first
@@ -121,7 +112,7 @@ export default function Settings() {
                 if (!healthRes.ok) throw new Error("Health check failed");
             } catch (err) {
                 console.error("Health check error:", err);
-                setToast({ message: "Server Offline: Make sure your backend (uvicorn) is running.", type: "error" });
+                showToast("Server offline: make sure your backend (uvicorn) is running.", "error");
                 setIsLoading(false);
                 return;
             }
@@ -140,7 +131,6 @@ export default function Settings() {
 
             if (keysRes.ok) {
                 const data = await keysRes.json();
-                setVaultKeys(data && Array.isArray(data) ? data : []);
 
                 const initialInputs: Record<string, string> = {};
                 if (data && Array.isArray(data)) {
@@ -168,35 +158,57 @@ export default function Settings() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const updateConfig = async (key: keyof GlobalConfig, value: any) => {
+    useEffect(() => {
+        setMounted(true);
+        void fetchSettingsData();
+    }, [fetchSettingsData]);
+
+    const updateConfig = async (
+        key: keyof GlobalConfig,
+        value: GlobalConfig[keyof GlobalConfig]
+    ) => {
+        const previousConfig = globalConfig;
         const newConfig = { ...globalConfig, [key]: value };
         setGlobalConfig(newConfig);
-        setSavingConfig(true);
 
         try {
-            await fetch(`${API_BASE}/api/config/update`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/config/update`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ [key]: value })
             });
-        } catch (err) {
-            console.error("Failed to save config:", err);
-        } finally {
-            setSavingConfig(false);
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to save config (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
+            }
+        } catch (err: unknown) {
+            setGlobalConfig(previousConfig);
+            showToast(err instanceof Error ? err.message : "Failed to save config.", "error");
         }
     };
 
     const handleClearMemory = async () => {
         setClearingMemory(true);
         try {
-            await fetch(`${API_BASE}/api/config/clear-memory`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/config/clear-memory`, {
                 method: "POST"
             });
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to clear memory (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
+            }
             setShowMemoryConfirm(false);
-        } catch (err) {
-            console.error("Failed to clear memory:", err);
+            showToast("Vector memory cleared.", "success");
+        } catch (err: unknown) {
+            showToast(err instanceof Error ? err.message : "Failed to clear memory.", "error");
         } finally {
             setClearingMemory(false);
         }
@@ -206,18 +218,23 @@ export default function Settings() {
         if (!appNameInput.trim() || appNameInput === workspaceInfo.app_name) return;
         setSavingWorkspace(true);
         try {
-            const res = await fetch(`${API_BASE}/api/workspace/update`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/workspace/update`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ app_name: appNameInput })
             });
-            if (res.ok) {
-                setWorkspaceSuccess(true);
-                setWorkspaceInfo(prev => ({ ...prev, app_name: appNameInput }));
-                setTimeout(() => setWorkspaceSuccess(false), 2000);
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to save workspace info (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (err) {
-            console.error("Failed to save workspace info:", err);
+            setWorkspaceSuccess(true);
+            setWorkspaceInfo((prev) => ({ ...prev, app_name: appNameInput }));
+            setTimeout(() => setWorkspaceSuccess(false), 2000);
+        } catch (err: unknown) {
+            showToast(err instanceof Error ? err.message : "Failed to save workspace info.", "error");
         } finally {
             setSavingWorkspace(false);
         }
@@ -226,41 +243,33 @@ export default function Settings() {
     const handleSave = async (category: string, keyName: string) => {
         const val = inputValues[keyName];
         if (!val || val.trim() === "") {
-            setToast({ message: "Mawa, key empty ga undhi. Paste chesi save cheyi.", type: "error" });
-            setTimeout(() => setToast(null), 4000);
+            showToast("Key is empty. Paste and save the key.", "error");
             return;
         }
 
-        if (val.includes("••••••••")) return; // Don't save if unchanged masked
+        if (val.includes("•") || val.includes("â€¢")) return; // Don't save if unchanged masked
 
         setSavingKeys(prev => ({ ...prev, [keyName]: true }));
-        const url = `${API_BASE}/api/vault/save`;
-        const payload = { key_name: keyName, value: val, category };
-        console.log(`[Save Key] Sending request to: ${url}`, payload);
-
         try {
-            const res = await fetchWithTimeout(url, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/vault/save`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ key_name: keyName, value: val, category })
             });
 
-            const data = await res.json();
+            const data = await res.json().catch(() => ({} as { detail?: string }));
 
             if (res.ok) {
-                setToast({ message: "Success: API key encrypted and saved to Vault.", type: "success" });
+                showToast("API key encrypted and saved to Vault.", "success");
                 setSavedSuccess(prev => ({ ...prev, [keyName]: true }));
                 setTimeout(() => setSavedSuccess(prev => ({ ...prev, [keyName]: false })), 2000);
-                setTimeout(() => setToast(null), 4000);
                 await fetchSettingsData(); // Refresh to get masked version
             } else {
-                setToast({ message: data.detail || "Failed to save key.", type: "error" });
-                setTimeout(() => setToast(null), 5000);
+                showToast(data.detail || "Failed to save key.", "error");
             }
         } catch (error) {
             console.error(`Failed to save ${keyName}:`, error);
-            setToast({ message: "Network Error: Failed to reach backend.", type: "error" });
-            setTimeout(() => setToast(null), 5000);
+            showToast("Network error: failed to reach backend.", "error");
         } finally {
             setSavingKeys(prev => ({ ...prev, [keyName]: false }));
         }
@@ -529,7 +538,7 @@ export default function Settings() {
 
                                             // We use the inputValues fallback only if loaded
                                             const value = inputValues[keyName] || "";
-                                            const isNewEdited = value !== "" && !value.includes("••••••••");
+                                            const isNewEdited = value !== "" && !value.includes("•") && !value.includes("â€¢");
 
                                             return (
                                                 <div key={keyName} className="flex flex-col gap-1.5 relative">
@@ -618,29 +627,6 @@ export default function Settings() {
                     )}
                 </motion.div>
 
-                {/* ── Toast Notification ── */}
-                <AnimatePresence>
-                    {toast && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 50, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 50, scale: 0.95 }}
-                            className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border transition-all
-                                ${toast.type === "success"
-                                    ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                    : "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                }
-                            `}
-                        >
-                            {toast.type === "success" ? (
-                                <ShieldCheck size={20} className="text-white dark:text-black" />
-                            ) : (
-                                <AlertTriangle size={20} className="text-white dark:text-black" />
-                            )}
-                            <span className="text-sm font-bold tracking-tight">{toast.message}</span>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
                 {/* ── Vault PIN Modal ── */}
                 <VaultPinModal
                     isOpen={isVaultModalOpen}

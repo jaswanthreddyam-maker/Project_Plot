@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { Plus, Trash2 } from "lucide-react";
 import { API_BASE, fetchWithTimeout } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 interface VariableInput {
     key: string;
@@ -22,18 +23,8 @@ export default function EnvVariables() {
     const [savedVariables, setSavedVariables] = useState<VaultVariable[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     const [variables, setVariables] = useState<VariableInput[]>([{ key: "", value: "" }]);
-    const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const showToast = useCallback((message: string, type: "success" | "error") => {
-        setToast({ message, type });
-        if (toastTimeoutRef.current) {
-            clearTimeout(toastTimeoutRef.current);
-        }
-        toastTimeoutRef.current = setTimeout(() => setToast(null), 3500);
-    }, []);
 
     const fetchVariables = useCallback(async () => {
         try {
@@ -52,15 +43,10 @@ export default function EnvVariables() {
         } finally {
             setLoading(false);
         }
-    }, [showToast]);
+    }, []);
 
     useEffect(() => {
         fetchVariables();
-        return () => {
-            if (toastTimeoutRef.current) {
-                clearTimeout(toastTimeoutRef.current);
-            }
-        };
     }, [fetchVariables]);
 
     const updateVariableRow = (index: number, field: keyof VariableInput, value: string) => {
@@ -163,15 +149,6 @@ export default function EnvVariables() {
                         Store global API keys and configuration parameters required by your autonomous workflows. These variables are securely loaded into the execution context before any tools or agents run.
                     </p>
                 </div>
-
-                {toast && (
-                    <div className={`rounded-lg border px-4 py-3 text-sm ${toast.type === "success"
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                        : "bg-red-500/10 border-red-500/30 text-red-300"
-                        }`}>
-                        {toast.message}
-                    </div>
-                )}
 
                 {/* Bulk Add Variable Form */}
                 <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-6">

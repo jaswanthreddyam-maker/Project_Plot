@@ -8,7 +8,9 @@
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ReactNode, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { SessionProvider } from "next-auth/react";
 import { initializeApiInterceptors } from "@/lib/api";
+import GlobalToaster from "@/components/layout/GlobalToaster";
 
 function AuthGuard({ children }: { children: ReactNode }) {
     const router = useRouter();
@@ -20,11 +22,9 @@ function AuthGuard({ children }: { children: ReactNode }) {
         const isWorkspace = pathname.startsWith("/workspace");
 
         if (isWorkspace && !token) {
-            console.log("[AuthGuard] No token. Redirecting to /login");
-            router.push("/login");
+            router.replace("/login");
         } else if (isLogin && token) {
-            console.log("[AuthGuard] Token found. Redirecting to /workspace");
-            router.push("/workspace");
+            router.replace("/workspace");
         }
     }, [pathname, router]);
 
@@ -37,8 +37,11 @@ export function Providers({ children }: { children: ReactNode }) {
     }, []);
 
     return (
-        <NextThemesProvider attribute="class" defaultTheme="system" enableSystem={true}>
-            <AuthGuard>{children}</AuthGuard>
-        </NextThemesProvider>
+        <SessionProvider>
+            <NextThemesProvider attribute="class" defaultTheme="system" enableSystem={true}>
+                <AuthGuard>{children}</AuthGuard>
+                <GlobalToaster />
+            </NextThemesProvider>
+        </SessionProvider>
     );
 }

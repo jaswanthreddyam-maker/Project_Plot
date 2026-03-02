@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore, AgentConfig, TaskConfig } from "@/store/uiStore";
-import { API_BASE, fetchWithTimeout } from "@/lib/api";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Brain, Calendar, User, Wrench, Play, ArrowRightLeft, Repeat, UserCheck, LayoutTemplate } from "lucide-react";
 import { ApprovalOverlay } from "./ApprovalOverlay";
 
 import {
     ReactFlow,
-    Controls,
     Background,
     applyNodeChanges,
     applyEdgeChanges,
@@ -21,8 +21,6 @@ import {
     Position
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-
-import KnowledgeManager from "./KnowledgeManager";
 
 // --- Custom Nodes ---
 
@@ -125,7 +123,7 @@ export default function CrewStudio() {
     // ── HITL Approval State ──────────────────────────────────────
     const [isApprovalOpen, setIsApprovalOpen] = useState(false);
     const [approvalToolName, setApprovalToolName] = useState("");
-    const [approvalArguments, setApprovalArguments] = useState<any>(null);
+    const [approvalArguments, setApprovalArguments] = useState<unknown>(null);
     const [approvalExecutionId, setApprovalExecutionId] = useState("");
 
     // ── React Flow State ─────────────────────────────────────────
@@ -234,7 +232,7 @@ export default function CrewStudio() {
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [agentConfig, selectedAgentId, activeAgentId, activeToolId, activeEdgeId]);
+    }, [agentConfig, selectedAgentId, activeAgentId, activeToolId, activeEdgeId, setSelectedAgentId, setIsDrawerOpen]);
 
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
@@ -364,35 +362,53 @@ export default function CrewStudio() {
         return () => {
             eventSource.close();
         };
-    }, [isToolExecuting, toolTaskId, setToolExecutionState, handleReset, agentConfig]);
+    }, [isToolExecuting, toolTaskId, setToolExecutionState, handleReset, agentConfig, setTaskConfig]);
 
     const handleApprove = async () => {
         if (!approvalExecutionId) return;
         try {
-            await fetchWithTimeout(`${API_BASE}/api/approval/confirm`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/approval/confirm`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ execution_id: approvalExecutionId }),
             });
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Approval failed (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
+            }
             setIsApprovalOpen(false);
             setToolExecutionState("Approval granted. Resuming...");
-        } catch (err) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Failed to approve.";
             console.error("Failed to approve", err);
+            setTerminalError(message);
         }
     };
 
     const handleDeny = async () => {
         if (!approvalExecutionId) return;
         try {
-            await fetchWithTimeout(`${API_BASE}/api/approval/deny`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/approval/deny`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ execution_id: approvalExecutionId }),
             });
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Deny request failed (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
+            }
             setIsApprovalOpen(false);
             setToolExecutionState("Action denied. Halted.");
-        } catch (err) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Failed to deny.";
             console.error("Failed to deny", err);
+            setTerminalError(message);
         }
     };
 
@@ -400,16 +416,25 @@ export default function CrewStudio() {
         if (!toolTaskId || !interventionInput.trim()) return;
 
         try {
-            await fetchWithTimeout(`${API_BASE}/api/resume`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/resume`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ task_id: toolTaskId, feedback: interventionInput }),
             });
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to submit feedback (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
+            }
             setIsInterventionRequired(false);
             setInterventionInput("");
             setToolExecutionState("Resuming execution with feedback...");
-        } catch (err) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Failed to submit feedback.";
             console.error("Failed to submit feedback", err);
+            setTerminalError(message);
         }
     };
 
@@ -446,8 +471,6 @@ export default function CrewStudio() {
             }
         };
 
-        console.log(`[Execute Flow] Sending request to: ${API_BASE}/api/tools/execute`, payload);
-
         try {
             const res = await fetchWithTimeout(`${API_BASE}/api/tools/execute`, {
                 method: "POST",
@@ -464,7 +487,7 @@ export default function CrewStudio() {
                 try {
                     const errObj = await res.json();
                     errText = errObj.detail || errText;
-                } catch (e) {
+                } catch {
                     errText = await res.text() || errText;
                 }
                 setTerminalError(`Execution Failed: ${errText}`);
@@ -472,8 +495,9 @@ export default function CrewStudio() {
                 setShowOutputModal(false);
                 setTaskConfig(useUIStore.getState().taskConfig.map(t => ({ ...t, status: 'Failed' as const })));
             }
-        } catch (err: any) {
-            setTerminalError(`Network Error: ${err.message || "Failed to reach backend."}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Failed to reach backend.";
+            setTerminalError(`Network Error: ${message}`);
             setIsOutputLoading(false);
             setShowOutputModal(false);
             setTaskConfig(useUIStore.getState().taskConfig.map(t => ({ ...t, status: 'Failed' as const })));
@@ -496,15 +520,19 @@ export default function CrewStudio() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ interval: scheduleInterval, arguments: payload }),
             });
-            if (res.ok) {
-                setShowScheduleModal(false);
-                alert(`Successfully scheduled for: ${scheduleInterval}`);
-            } else {
-                alert("Failed to schedule workflow.");
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to schedule workflow (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (e) {
+            setShowScheduleModal(false);
+            showToast(`Successfully scheduled for: ${scheduleInterval}`, "success");
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Error scheduling workflow.";
             console.error(e);
-            alert("Error scheduling workflow.");
+            showToast(message, "error");
         } finally {
             setIsScheduling(false);
         }
@@ -512,7 +540,7 @@ export default function CrewStudio() {
 
     const saveAsTemplate = async () => {
         if (!saveTemplateData.name.trim() || !saveTemplateData.description.trim()) {
-            alert("Please provide a name and description.");
+            showToast("Please provide a name and description.", "info");
             return;
         }
         setIsSavingTemplate(true);
@@ -536,16 +564,20 @@ export default function CrewStudio() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-            if (res.ok) {
-                setShowSaveTemplateModal(false);
-                setSaveTemplateData({ name: "", description: "", icon_name: "LayoutTemplate" });
-                alert("Workflow saved as template successfully!");
-            } else {
-                alert("Failed to save template.");
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to save template (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (e) {
+            setShowSaveTemplateModal(false);
+            setSaveTemplateData({ name: "", description: "", icon_name: "LayoutTemplate" });
+            showToast("Workflow saved as template successfully.", "success");
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Error saving template.";
             console.error(e);
-            alert("Error saving template.");
+            showToast(message, "error");
         } finally {
             setIsSavingTemplate(false);
         }

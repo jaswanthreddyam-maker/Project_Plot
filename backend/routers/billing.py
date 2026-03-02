@@ -1,4 +1,5 @@
 import os
+import logging
 import stripe
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
@@ -8,6 +9,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
+logger = logging.getLogger(__name__)
 
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
@@ -22,7 +24,7 @@ async def get_billing_status(current_user: str = Depends(get_current_user)):
     try:
         config = db.query(GlobalConfig).filter(GlobalConfig.user_id == current_user).first()
         if not config:
-            return {"status": "none", "customer_id": None}
+            return {"status": "none", "customer_id": None, "has_item": False}
         return {
             "status": config.subscription_status,
             "customer_id": config.stripe_customer_id,
@@ -69,7 +71,7 @@ async def create_checkout_session(req: CheckoutRequest, current_user: str = Depe
         )
         return {"url": session.url}
     except Exception as e:
-        print(f"Stripe Error: {e}")
+        logger.exception("Stripe checkout session creation failed")
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         db.close()
@@ -98,7 +100,7 @@ async def stripe_webhook(request: Request, stripe_signature: Optional[str] = Hea
     payload = await request.body()
     try:
         event = stripe.Webhook.construct_event(payload, stripe_signature, webhook_secret)
-    except stripe.error.SignatureVerificationError as e:
+    except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

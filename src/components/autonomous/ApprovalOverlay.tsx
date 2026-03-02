@@ -7,7 +7,7 @@ interface ApprovalOverlayProps {
     isOpen: boolean;
     executionId: string;
     toolName: string;
-    arguments: any;
+    arguments: unknown;
     onApprove: () => void;
     onDeny: () => void;
 }

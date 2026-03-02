@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import { motion, AnimatePresence } from "framer-motion";
-import { Activity, DollarSign, Zap, ShieldCheck, TrendingUp, BarChart3, Users, Wrench } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { motion } from "framer-motion";
+import { Activity, DollarSign, ShieldCheck, TrendingUp, BarChart3, Users, Wrench } from "lucide-react";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════
  * Usage Page — Live Analytics & Cost Tracking
@@ -49,9 +49,11 @@ export function UsagePage() {
     });
     const [loading, setLoading] = useState(true);
     const [offlineError, setOfflineError] = useState(false);
+    const [offlineMessage, setOfflineMessage] = useState("Network error connecting to analytics engine.");
 
     const fetchUsage = useCallback(async () => {
         setOfflineError(false);
+        setOfflineMessage("Network error connecting to analytics engine.");
         try {
             // Retrieve token from localStorage
             let token = "";
@@ -59,7 +61,7 @@ export function UsagePage() {
                 token = localStorage.getItem("plot_auth_token") || "";
             }
 
-            const res = await fetch(`${API_BASE}/api/analytics/usage`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/analytics/usage`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
@@ -73,11 +75,12 @@ export function UsagePage() {
             }
 
             if (!res.ok) {
-                if (res.status === 500) {
-                    setOfflineError(true);
-                }
-                // If 404 or other errors, we gracefully fail and stick with the default 0 metrics
-                setLoading(false);
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to load analytics (HTTP ${res.status}).`
+                );
+                setOfflineMessage(detail);
+                setOfflineError(true);
                 return;
             }
 
@@ -96,8 +99,11 @@ export function UsagePage() {
                 task_chart: json?.task_chart || []
             });
 
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(err);
+            setOfflineMessage(
+                err instanceof Error ? err.message : "Network error connecting to analytics engine."
+            );
             setOfflineError(true); // Actual network connection failure
         } finally {
             setLoading(false);
@@ -126,7 +132,7 @@ export function UsagePage() {
                         <Activity size={32} />
                     </div>
                     <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Analytics Offline</h3>
-                    <p className="text-sm text-slate-500 mb-6">Network error connecting to analytics engine.</p>
+                    <p className="text-sm text-slate-500 mb-6">{offlineMessage}</p>
                     <button onClick={() => { setLoading(true); fetchUsage(); }} className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold">Try Again</button>
                 </div>
             </div>

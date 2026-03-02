@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { useUIStore } from "@/store/uiStore";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 interface ScheduledFlow {
     id: string;
@@ -31,24 +32,30 @@ export default function Automations() {
         "Daily at 9 AM"
     ];
 
-    useEffect(() => {
-        fetchAutomations();
-    }, []);
-
-    const fetchAutomations = async () => {
+    const fetchAutomations = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_BASE}/api/automations`);
-            if (res.ok) {
-                const data = await res.json();
-                setAutomations(data);
+            const res = await fetchWithTimeout(`${API_BASE}/api/automations`);
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to fetch automations (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (error) {
-            console.error("Failed to fetch automations:", error);
+            const data = await res.json();
+            setAutomations(Array.isArray(data) ? data : []);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Failed to fetch automations.";
+            showToast(message, "error");
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        void fetchAutomations();
+    }, [fetchAutomations]);
 
     const handleCreateSchedule = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -63,51 +70,62 @@ export default function Automations() {
                 knowledge_sources: activeKnowledgeSources
             };
 
-            const res = await fetch(`${API_BASE}/api/automations`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/automations`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     crew_name: crewName,
                     cron_schedule: cronSchedule,
                     payload
-                })
+                }),
+                timeout: 15000,
             });
 
-            if (res.ok) {
-                setShowModal(false);
-                fetchAutomations();
-                setCrewName("Daily Research Crew");
-                setCronSchedule("Every Hour");
-                alert("Schedule Created Successfully!");
-            } else {
-                let errMsg = "Failed to create automation.";
-                try {
-                    const errData = await res.json();
-                    errMsg = errData.detail || errMsg;
-                } catch (e) { }
-                alert(`Error: ${errMsg}`);
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to create automation (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (error: any) {
-            console.error(error);
-            alert(`Network Error: ${error.message || "Failed to reach backend."}`);
+
+            setShowModal(false);
+            await fetchAutomations();
+            setCrewName("Daily Research Crew");
+            setCronSchedule("Every Hour");
+            showToast("Schedule created successfully.", "success");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Failed to reach backend.";
+            showToast(message, "error");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const toggleActive = async (id: string, currentStatus: boolean) => {
+        const previous = automations;
         // Optimistic UI update
-        setAutomations(automations.map(a => a.id === id ? { ...a, is_active: !currentStatus } : a));
+        setAutomations((current) =>
+            current.map((a) => (a.id === id ? { ...a, is_active: !currentStatus } : a))
+        );
         try {
-            await fetch(`${API_BASE}/api/automations/${id}/toggle`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/automations/${id}/toggle`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ is_active: !currentStatus })
             });
-        } catch (error) {
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to toggle automation (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
+            }
+        } catch (error: unknown) {
             // Revert on failure
-            setAutomations(automations.map(a => a.id === id ? { ...a, is_active: currentStatus } : a));
-            console.error("Failed to toggle status:", error);
+            setAutomations(previous);
+            const message = error instanceof Error ? error.message : "Failed to toggle status.";
+            showToast(message, "error");
         }
     };
 

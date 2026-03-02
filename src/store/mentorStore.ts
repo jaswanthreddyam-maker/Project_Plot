@@ -9,7 +9,6 @@
  */
 
 import { createStore } from "zustand/vanilla";
-import { useStore } from "zustand";
 import type { MentorOutput } from "@/app/lib/mentor-schema";
 
 export interface ExplanationStep {
@@ -78,7 +77,7 @@ export const createMentorStore = () =>
                 diagramSyntax: result.diagramSyntax,
                 expectedOutput: result.expectedOutput,
                 error: null,
-            }),
+            }),  
 
         setError: (error) => set({ status: "error", error }),
 
@@ -86,12 +85,3 @@ export const createMentorStore = () =>
     }));
 
 export type MentorStore = ReturnType<typeof createMentorStore>;
-
-/**
- * Hook to consume the mentor store from the React context.
- * Must be used inside <MentorStoreProvider>.
- */
-export function useMentorStoreApi(store: MentorStore) {
-    return <T,>(selector: (state: MentorState) => T): T =>
-        useStore(store, selector);
-}

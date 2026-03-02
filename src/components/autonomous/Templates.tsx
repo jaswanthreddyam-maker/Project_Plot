@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import * as LucideIcons from "lucide-react";
+import type { AgentConfig, TaskConfig } from "@/store/uiStore";
 import { useUIStore } from "@/store/uiStore";
-import { API_BASE, fetchWithTimeout } from "@/lib/api";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TemplateModel {
@@ -13,8 +15,8 @@ interface TemplateModel {
     icon_name: string;
     required_keys: string[];
     workflow_config: {
-        agentConfig: any[];
-        taskConfig: any[];
+        agentConfig: AgentConfig[];
+        taskConfig: TaskConfig[];
     };
 }
 
@@ -34,14 +36,11 @@ export default function Templates() {
     const [selectedTemplate, setSelectedTemplate] = useState<TemplateModel | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-    // Vault State
-    const [vaultKeys, setVaultKeys] = useState<VaultKey[]>([]);
     const [missingKeys, setMissingKeys] = useState<string[]>([]);
 
     // Key Input State
     const [inputValues, setInputValues] = useState<Record<string, string>>({});
     const [isSavingKey, setIsSavingKey] = useState(false);
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
 
     // Fetch Templates
     useEffect(() => {
@@ -76,12 +75,6 @@ export default function Templates() {
         fetchTemplates();
     }, []);
 
-    // Show Toast Helper
-    const showToast = (msg: string) => {
-        setToastMessage(msg);
-        setTimeout(() => setToastMessage(null), 3000);
-    };
-
     // Fetch Vault Keys
     const fetchVaultKeys = async () => {
         try {
@@ -89,9 +82,11 @@ export default function Templates() {
                 timeout: 10000
             });
             if (res.ok) {
-                const data = await res.json();
-                setVaultKeys(data);
-                return data;
+                const data = (await res.json()) as unknown;
+                if (Array.isArray(data)) {
+                    return data as VaultKey[];
+                }
+                return [];
             } else {
                 const text = await res.text().catch(() => "");
                 console.error("Failed to fetch vault", res.status, text);
@@ -129,7 +124,7 @@ export default function Templates() {
     const saveKeyToVault = async (reqKey: string) => {
         const val = inputValues[reqKey];
         if (!val) {
-            showToast("Key is empty!");
+            showToast("Key is empty.", "error");
             return;
         }
 
@@ -150,7 +145,7 @@ export default function Templates() {
             });
 
             if (res.ok) {
-                showToast(`Success: ${keyName} saved securely.`);
+                showToast(`${keyName} saved securely.`, "success");
                 const newKeys = await fetchVaultKeys();
 
                 // Recalculate missing
@@ -162,11 +157,14 @@ export default function Templates() {
                     setMissingKeys(missing);
                 }
             } else {
-                const err = await res.json();
-                showToast(`Error: ${err.detail || "Failed to save key."}`);
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to save key (HTTP ${res.status}).`
+                );
+                showToast(detail, "error");
             }
-        } catch (err) {
-            showToast("Network Error: Could not save key.");
+        } catch {
+            showToast("Network error: could not save key.", "error");
         } finally {
             setIsSavingKey(false);
         }
@@ -177,7 +175,7 @@ export default function Templates() {
         if (!selectedTemplate) return;
 
         if (missingKeys.length > 0) {
-            showToast("Mawa, ee template ki require keys kavali. Fill cheyi.");
+            showToast("Please fill required keys before deployment.", "info");
             return;
         }
 
@@ -186,7 +184,7 @@ export default function Templates() {
         if (config.taskConfig) setTaskConfig(config.taskConfig);
 
         setIsDrawerOpen(false);
-        showToast("Success: Template agents deployed to workspace.");
+        showToast("Template deployed to workspace.", "success");
 
         // Redirect to Workspace
         setTimeout(() => {
@@ -215,7 +213,8 @@ export default function Templates() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
                         {templates.map(template => {
-                            const IconComponent = (LucideIcons as any)[template.icon_name] || LucideIcons.LayoutTemplate;
+                            const iconMap = LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>;
+                            const IconComponent = iconMap[template.icon_name] || LucideIcons.LayoutTemplate;
 
                             return (
                                 <motion.div
@@ -270,7 +269,8 @@ export default function Templates() {
                                 <div className="flex gap-3 items-center">
                                     <div className="w-10 h-10 bg-black text-white rounded-xl flex items-center justify-center">
                                         {(() => {
-                                            const IconC = (LucideIcons as any)[selectedTemplate.icon_name] || LucideIcons.LayoutTemplate;
+                                            const iconMap = LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>;
+                                            const IconC = iconMap[selectedTemplate.icon_name] || LucideIcons.LayoutTemplate;
                                             return <IconC size={20} />;
                                         })()}
                                     </div>
@@ -289,7 +289,7 @@ export default function Templates() {
                             <div className="mb-8">
                                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Agents Involved</h4>
                                 <div className="space-y-3 border border-slate-200 rounded-xl p-4 bg-slate-50">
-                                    {selectedTemplate.workflow_config?.agentConfig?.map((agent: any, idx) => (
+                                    {selectedTemplate.workflow_config?.agentConfig?.map((agent) => (
                                         <div key={agent.id} className="flex items-center gap-3">
                                             <LucideIcons.Bot size={16} className="text-slate-600" />
                                             <span className="text-sm font-bold text-black">{agent.role}</span>
@@ -370,20 +370,6 @@ export default function Templates() {
                 )}
             </AnimatePresence>
 
-            {/* Toasts */}
-            <AnimatePresence>
-                {toastMessage && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 50, x: "-50%" }}
-                        animate={{ opacity: 1, y: 0, x: "-50%" }}
-                        exit={{ opacity: 0, y: 50, x: "-50%" }}
-                        className="fixed bottom-10 left-1/2 bg-black text-white px-6 py-3 rounded-2xl shadow-2xl z-50 flex items-center gap-3 border border-slate-800"
-                    >
-                        <LucideIcons.Info size={16} />
-                        <span className="text-sm font-bold">{toastMessage}</span>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     )
 }

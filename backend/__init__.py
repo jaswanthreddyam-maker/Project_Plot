@@ -1,1 +1,1 @@
-print("DEBUG: backend package initialized")
+"""Backend package."""

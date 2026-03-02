@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { CreditCard, CheckCircle2, AlertCircle, ExternalLink, Zap, ShieldCheck, PieChart, ArrowRight } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { motion } from "framer-motion";
+import { CreditCard, CheckCircle2, ExternalLink, Zap, ShieldCheck, PieChart, ArrowRight } from "lucide-react";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
 
 const PLANS = [
     {
@@ -28,16 +28,23 @@ export function BillingPage() {
     const [status, setStatus] = useState<{ status: string; customer_id: string | null; has_item: boolean } | null>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchStatus = useCallback(async () => {
+        setError(null);
         try {
-            const res = await fetch(`${API_BASE}/api/billing/status`);
-            if (res.ok) {
-                const data = await res.json();
-                setStatus(data);
+            const res = await fetchWithTimeout(`${API_BASE}/api/billing/status`);
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to fetch billing status (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (err) {
-            console.error("Failed to fetch billing status");
+            const data = await res.json();
+            setStatus(data);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Failed to fetch billing status.");
         } finally {
             setLoading(false);
         }
@@ -49,18 +56,28 @@ export function BillingPage() {
 
     const handleUpgrade = async (planId: string) => {
         setActionLoading(true);
+        setError(null);
         try {
-            const res = await fetch(`${API_BASE}/api/billing/create-checkout-session`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/billing/create-checkout-session`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ plan_id: planId })
             });
-            if (res.ok) {
-                const { url } = await res.json();
-                window.location.href = url;
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to start checkout (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (err) {
-            console.error("Upgrade failed");
+
+            const data = (await res.json()) as { url?: string };
+            if (!data.url) {
+                throw new Error("Checkout URL missing in response.");
+            }
+            window.location.href = data.url;
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Upgrade failed.");
         } finally {
             setActionLoading(false);
         }
@@ -68,16 +85,26 @@ export function BillingPage() {
 
     const handlePortal = async () => {
         setActionLoading(true);
+        setError(null);
         try {
-            const res = await fetch(`${API_BASE}/api/billing/create-portal-session`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/billing/create-portal-session`, {
                 method: "POST"
             });
-            if (res.ok) {
-                const { url } = await res.json();
-                window.location.href = url;
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to open billing portal (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (err) {
-            console.error("Portal access failed");
+
+            const data = (await res.json()) as { url?: string };
+            if (!data.url) {
+                throw new Error("Portal URL missing in response.");
+            }
+            window.location.href = data.url;
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Portal access failed.");
         } finally {
             setActionLoading(false);
         }
@@ -107,6 +134,11 @@ export function BillingPage() {
                         Plot AI uses a fair consumption-based pricing model.
                     </p>
                 </div>
+                {error && (
+                    <div className="mb-8 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                        {error}
+                    </div>
+                )}
 
                 {/* Dashboard Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
@@ -143,7 +175,7 @@ export function BillingPage() {
                                 <CheckCircle2 size={14} />
                                 <span className="text-[10px] font-black uppercase tracking-widest">Active Subscription</span>
                             </div>
-                            <h3 className="text-4xl font-black tracking-tighter mb-4">You're on the Scale Plan</h3>
+                            <h3 className="text-4xl font-black tracking-tighter mb-4">You&apos;re on the Scale Plan</h3>
                             <p className="text-slate-400 dark:text-slate-500 leading-relaxed mb-8 max-w-md text-lg">
                                 Your account is enabled for unlimited autonomous runs. Usage is reported hourly to Stripe.
                             </p>
@@ -215,7 +247,7 @@ export function BillingPage() {
                     <div>
                         <h4 className="text-xl font-black text-black dark:text-white mb-4 uppercase tracking-tight">How metered billing works</h4>
                         <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                            We track the exact number of tokens used by your agents during execution. These are synced with Stripe in real-time. You'll only be billed at the end of each monthly cycle for the volume processed.
+                            We track the exact number of tokens used by your agents during execution. These are synced with Stripe in real-time. You&apos;ll only be billed at the end of each monthly cycle for the volume processed.
                         </p>
                     </div>
                     <div>

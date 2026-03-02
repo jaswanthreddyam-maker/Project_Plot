@@ -43,12 +43,10 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        let body: any;
+        let body: { email?: unknown } = {};
         try {
-            body = await req.json();
-        } catch {
-            body = {};
-        }
+            body = (await req.json()) as { email?: unknown };
+        } catch {}
         const email = normalizeEmail(body?.email);
 
         if (!email || !email.includes("@")) {
@@ -91,16 +89,11 @@ export async function POST(req: NextRequest) {
         });
 
         if (!smtpUser || !smtpPass) {
-            console.log("\n=======================================");
-            console.log(`VAULT RESET OTP for ${email}`);
-            console.log(`OTP: ${otp}`);
-            console.log("Expires: 5 minutes");
-            console.log("=======================================\n");
-
             return NextResponse.json({
                 success: true,
-                message: "OTP sent (check server console - SMTP not configured)",
+                message: "OTP generated for local development (SMTP not configured).",
                 devMode: true,
+                otp,
             });
         }
 

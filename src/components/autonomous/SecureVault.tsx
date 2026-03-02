@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Lock, ShieldCheck, ArrowRight, ShieldAlert, KeyRound } from "lucide-react";
-import { API_BASE, fetchWithTimeout } from "@/lib/api";
+import { motion } from "framer-motion";
+import { Lock, ShieldCheck, ArrowRight, ShieldAlert } from "lucide-react";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
 
 interface SecureVaultProps {
     children: React.ReactNode;
@@ -83,7 +83,7 @@ export default function SecureVault({ children }: SecureVaultProps) {
                 setError("Incorrect PIN. Try again.");
                 setPin("");
             }
-        } catch (err) {
+        } catch {
             setError("Network error. Try again later.");
         } finally {
             setLoading(false);
@@ -116,9 +116,10 @@ export default function SecureVault({ children }: SecureVaultProps) {
                 setPin("");
                 setConfirmPin("");
             } else {
-                setError("Failed to set PIN.");
+                const detail = await readErrorMessage(res, "Failed to set PIN.");
+                setError(detail);
             }
-        } catch (err) {
+        } catch {
             setError("Network error.");
         } finally {
             setLoading(false);

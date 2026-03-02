@@ -1,22 +1,23 @@
-from pydantic import BaseModel
 import datetime
-import uuid
-from crewai.flow.flow import Flow, start, listen
-from crewai.flow.persistence.decorators import persist
-from crewai import Agent, Task, Crew, Process, LLM
-
 import json
-import redis
+import logging
 import os
+import uuid
 
-from backend.db_config import get_db_session, AgentTrace, SessionLocal, AgentApproval, VaultKey, GlobalConfig
 import chromadb
-from chromadb.config import Settings
+import redis
+from crewai import Agent, Crew, LLM, Process, Task
+from crewai.flow.flow import Flow, listen, start
+from crewai.flow.persistence.decorators import persist
 from cryptography.fernet import Fernet
+from pydantic import BaseModel
+
+from backend.db_config import AgentApproval, AgentTrace, GlobalConfig, SessionLocal, VaultKey, get_db_session
 
 
 redis_client = redis.Redis.from_url(os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0"))
 SENSITIVE_TOOLS = ["Delete", "Shell", "FileWrite", "GitHub", "Asana", "Jira", "GitHub Action Tool"]
+logger = logging.getLogger(__name__)
 
 class HITLToolWrapper:
     """Wraps a CrewAI tool to intercept execution if it's in the sensitive list."""
@@ -30,7 +31,7 @@ class HITLToolWrapper:
 
     def _run(self, *args, **kwargs):
         if self.name in SENSITIVE_TOOLS:
-            print(f"[HITL] Intercepting sensitive tool: {self.name}")
+            logger.info("[HITL] Intercepting sensitive tool: %s", self.name)
             
             # 1. Create DB record for approval
             import json
@@ -62,17 +63,17 @@ class HITLToolWrapper:
             redis_client.rpush(f"stream:{self.execution_id}", json.dumps(payload))
 
             # 3. Block for response
-            print(f"[HITL] Blocking for approval: approval_response:{self.execution_id}")
+            logger.info("[HITL] Blocking for approval: approval_response:%s", self.execution_id)
             result = redis_client.blpop(f"approval_response:{self.execution_id}", timeout=600) # 10 min timeout
             
             if result:
                 _, response_bytes = result
                 response = response_bytes.decode('utf-8')
                 if response == "approved":
-                    print(f"[HITL] Tool approved: {self.name}")
+                    logger.info("[HITL] Tool approved: %s", self.name)
                     return self.tool._run(*args, **kwargs)
                 else:
-                    print(f"[HITL] Tool denied: {self.name}")
+                    logger.warning("[HITL] Tool denied: %s", self.name)
                     raise Exception("cancelled_by_user")
             else:
                 raise Exception("cancelled_by_user")
@@ -96,7 +97,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
     @start()
     def initialize_workflow(self):
         self.state.status = "Initializing Plot Autonomous workflow..."
-        print(f"[PlotAutonomousFlow] Start: received input: {self.state.user_input}")
+        logger.info("[PlotAutonomousFlow] Start: received input")
         return "Workflow initialized"
 
     @listen(initialize_workflow)
@@ -140,7 +141,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
                     if vk.category in ["SEARCH", "DEV"]:
                         os.environ[vk.key_name] = decrypted
                 except Exception as e:
-                    print(f"[Vault] Failed to decrypt key {vk.key_name}: {e}")
+                    logger.warning("[Vault] Failed to decrypt key %s", vk.key_name)
                     
         finally:
             db.close()
@@ -255,12 +256,12 @@ class PlotAutonomousFlow(Flow[PlotState]):
                             "input": action_input,
                             "timestamp": str(datetime.datetime.utcnow())
                         }
-                    except:
+                    except Exception:
                         pass
                 
                 redis_client.rpush(f"stream:{self.state.execution_id}", json.dumps(trace_payload))
             except Exception as e:
-                print(f"[Telemetry Error] Failed to write trace: {e}")
+                logger.warning("[Telemetry Error] Failed to write trace: %s", e)
 
         openai_embedder_key = (
             decrypted_keys.get("OPENAI_API_KEY")
@@ -294,7 +295,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
         crew = Crew(**crew_kwargs)
         
         self.state.status = "Executing core workflow logic..."
-        print(f"[PlotAutonomousFlow] Crew Kickoff Started")
+        logger.info("[PlotAutonomousFlow] Crew Kickoff Started")
         
         # --- RAG: Retrieve context from ChromaDB ---
         try:
@@ -309,12 +310,12 @@ class PlotAutonomousFlow(Flow[PlotState]):
             context = "\n".join(results['documents'][0]) if results['documents'] else ""
             
             if context:
-                print(f"[RAG] Retrieved context: {context[:100]}...")
+                logger.info("[RAG] Retrieved context")
                 # Prepend context to the first task's description as requested
                 if crew_tasks:
                     crew_tasks[0].description = f"Relevant Context:\n{context}\n\nTask Description:\n{crew_tasks[0].description}"
         except Exception as e:
-            print(f"[RAG Error] {e}")
+            logger.warning("[RAG Error] %s", e)
 
         try:
             # This blocks until CrewAI finishes its steps. Redis listeners trap the updates!
@@ -327,7 +328,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
                     ids=[f"result_{self.state.execution_id}"]
                 )
             except Exception as e:
-                print(f"[RAG Save Error] {e}")
+                logger.warning("[RAG Save Error] %s", e)
 
             return str(crew_result.raw)
             
@@ -340,7 +341,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
             
             error_msg = f"API Error or Network Failure: {error_msg}"
             redis_client.rpush(f"stream:{self.state.execution_id}", f"__ERROR__{error_msg}")
-            print(f"[CrewAI Error] {error_msg}")
+            logger.error("[CrewAI Error] %s", error_msg)
             return f"Error: {error_msg}"
             
         finally:
@@ -367,7 +368,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
                 with get_db_session() as ds:
                     metrics.log_usage(ds, self.state.execution_id, self.state.user_id, model_used, prompt_tokens, completion_tokens, status=status_val)
             except Exception as usage_err:
-                print(f"[Usage Tracking Error] {usage_err}")
+                logger.warning("[Usage Tracking Error] %s", usage_err)
 
     @listen(assemble_and_run_crew)
     def request_human_feedback(self, draft_result):
@@ -380,7 +381,7 @@ class PlotAutonomousFlow(Flow[PlotState]):
         
         # Block until feedback is received in the dedicated feedback queue
         feedback_channel = f"feedback:{self.state.execution_id}"
-        print(f"[PlotAutonomousFlow] Blocking for feedback on channel: {feedback_channel}")
+        logger.info("[PlotAutonomousFlow] Blocking for feedback")
         
         # blpop returns a tuple (key, value)
         result = redis_client.blpop(feedback_channel, timeout=300) # Wait up to 5 minutes
@@ -388,10 +389,10 @@ class PlotAutonomousFlow(Flow[PlotState]):
         if result:
             _, feedback_bytes = result
             feedback = feedback_bytes.decode('utf-8')
-            print(f"[PlotAutonomousFlow] Received feedback: {feedback}")
+            logger.info("[PlotAutonomousFlow] Feedback received")
             return feedback
         else:
-            print("[PlotAutonomousFlow] Timeout waiting for feedback")
+            logger.warning("[PlotAutonomousFlow] Timeout waiting for feedback")
             return "No feedback provided (Timeout)"
 
     @listen(request_human_feedback)

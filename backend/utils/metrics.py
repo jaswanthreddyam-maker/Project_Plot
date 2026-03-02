@@ -1,8 +1,13 @@
-import uuid
 import os
-import stripe
+import logging
+import uuid
 from datetime import datetime
+
+import stripe
+
 from backend.db_config import UsageLog, GlobalConfig
+
+logger = logging.getLogger(__name__)
 
 # Current Model Pricing (per 1M tokens) - Estimates as of 2026
 PRICING = {
@@ -56,7 +61,7 @@ def log_usage(db_session, execution_id: str, user_id: str, model: str, prompt_to
                     action='increment'
                 )
     except Exception as e:
-        print(f"Failed to report usage to Stripe: {e}")
+        logger.warning("Failed to report usage to Stripe: %s", e)
 
     db_session.commit()
     return usage_entry

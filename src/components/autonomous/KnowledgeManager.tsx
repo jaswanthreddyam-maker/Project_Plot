@@ -2,7 +2,8 @@
 
 import { useState, useRef } from "react";
 import { useUIStore } from "@/store/uiStore";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function KnowledgeManager() {
@@ -19,7 +20,7 @@ export default function KnowledgeManager() {
 
         if (file) {
             if (file.type !== "application/pdf" && file.type !== "text/plain") {
-                alert("Only PDF and TXT files are supported for now.");
+                showToast("Only PDF and TXT files are supported for now.", "info");
                 setIsUploading(false);
                 return;
             }
@@ -28,8 +29,8 @@ export default function KnowledgeManager() {
             try {
                 new URL(url); // Basic validation
                 formData.append("url", url);
-            } catch (err) {
-                alert("Please enter a valid URL.");
+            } catch {
+                showToast("Please enter a valid URL.", "error");
                 setIsUploading(false);
                 return;
             }
@@ -39,7 +40,7 @@ export default function KnowledgeManager() {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/knowledge/upload`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/knowledge/upload`, {
                 method: "POST",
                 body: formData,
             });
@@ -57,11 +58,16 @@ export default function KnowledgeManager() {
                 ]);
                 if (url) setUrlInput(""); // Reset URL input on success
             } else {
-                alert("Failed to upload knowledge source.");
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to upload knowledge source (HTTP ${res.status}).`
+                );
+                showToast(detail, "error");
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error("Upload error:", err);
-            alert("Network error. Make sure the backend is running.");
+            const message = err instanceof Error ? err.message : "Network error. Make sure the backend is running.";
+            showToast(message, "error");
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = "";

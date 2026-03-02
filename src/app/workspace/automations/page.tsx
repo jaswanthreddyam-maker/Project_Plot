@@ -5,14 +5,9 @@ import { formatDistanceToNowStrict, isValid, parseISO } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Bell, ChevronRight, MoreVertical, Search } from "lucide-react";
-import { API_BASE, fetchWithTimeout } from "@/lib/api";
-
-interface Project {
-    id: string;
-    title: string;
-    description?: string;
-    updated_at: string;
-}
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
+import { showToast } from "@/lib/toast";
+import type { ProjectDto } from "@/types/api";
 
 const SUGGESTIONS = [
     "Score leads",
@@ -46,7 +41,7 @@ export default function AutomationsPage() {
     const router = useRouter();
     const [prompt, setPrompt] = useState("");
     const [search, setSearch] = useState("");
-    const [projects, setProjects] = useState<Project[]>([]);
+    const [projects, setProjects] = useState<ProjectDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -60,9 +55,13 @@ export default function AutomationsPage() {
             try {
                 const res = await fetchWithTimeout(`${API_BASE}/api/projects/`, { timeout: 12000 });
                 if (!res.ok) {
-                    throw new Error(`Failed to fetch projects (HTTP ${res.status})`);
+                    const detail = await readErrorMessage(
+                        res,
+                        `Failed to fetch projects (HTTP ${res.status})`
+                    );
+                    throw new Error(detail);
                 }
-                const data = (await res.json()) as Project[];
+                const data = (await res.json()) as ProjectDto[];
                 if (cancelled) return;
                 setProjects(Array.isArray(data) ? data : []);
             } catch (err) {
@@ -108,10 +107,14 @@ export default function AutomationsPage() {
                 timeout: 12000,
             });
             if (!res.ok) {
-                throw new Error(`Failed to create project (HTTP ${res.status})`);
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to create project (HTTP ${res.status})`
+                );
+                throw new Error(detail);
             }
 
-            const created = (await res.json()) as Project;
+            const created = (await res.json()) as ProjectDto;
             setProjects((current) => [created, ...current.filter((project) => project.id !== created.id)]);
             setPrompt("");
             router.push(`/workspace/plot-studio/${created.id}`);
@@ -156,6 +159,7 @@ export default function AutomationsPage() {
                         </div>
                         <button
                             type="button"
+                            onClick={() => showToast("No notifications right now.", "info")}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 dark:border-[#333639] dark:bg-[#1e1f22] dark:hover:bg-[#282a2c]"
                             title="Notifications"
                         >
@@ -163,6 +167,7 @@ export default function AutomationsPage() {
                         </button>
                         <button
                             type="button"
+                            onClick={() => router.push("/workspace")}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-black text-sm font-semibold text-white dark:border dark:border-[#333639] dark:bg-[#1e1f22] dark:text-[#e3e3e3] dark:hover:bg-[#282a2c]"
                             title="Profile"
                         >
@@ -255,9 +260,12 @@ export default function AutomationsPage() {
                                                 <h3 className="line-clamp-2 text-base font-semibold">{project.title}</h3>
                                                 <button
                                                     type="button"
-                                                    onClick={(event) => event.stopPropagation()}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        router.push(`/workspace/plot-studio/${project.id}`);
+                                                    }}
                                                     className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-100 dark:border-[#333639] dark:bg-[#1e1f22] dark:hover:bg-[#282a2c]"
-                                                    title="More actions"
+                                                    title="Open project"
                                                 >
                                                     <MoreVertical size={14} />
                                                 </button>

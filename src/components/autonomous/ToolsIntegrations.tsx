@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUIStore } from "@/store/uiStore";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
 import IntegrationModal from "./IntegrationModal";
 import Nango from "@nangohq/frontend";
 
@@ -22,6 +22,12 @@ interface IntegrationTool {
     activeCount: number;
     connected: boolean;
     category: string;
+}
+
+interface VaultListItem {
+    key_name: string;
+    category: string;
+    masked_value: string;
 }
 
 const INTEGRATIONS: IntegrationTool[] = [
@@ -137,9 +143,17 @@ const TABS: { id: TabId; label: string }[] = [
 
 const STATUS_OPTIONS = ["All", "Connected", "Not Connected"];
 
+const getTokenId = (keyName: string) => {
+    if (keyName === "GITHUB_TOKEN") return "github";
+    if (keyName === "ASANA_ACCESS_TOKEN") return "asana";
+    if (keyName === "JIRA_API_TOKEN") return "jira";
+    if (keyName === "ENTERPRISE_AUTH_TOKEN") return "enterprise-auth";
+    return keyName.replace("_TOKEN", "").toLowerCase().replace(/_/g, "-");
+};
+
 export default function ToolsIntegrations() {
-    const activeTab = useUIStore((s) => s.activeAmpRoute === "tools-integrations" ? "integrations" : "agent-apps"); // just a default
-    const [localTab, setLocalTab] = useState<TabId>("agent-apps");
+    const preferredTab = useUIStore((s) => s.activeAmpRoute === "tools-integrations" ? "integrations" : "agent-apps");
+    const [localTab, setLocalTab] = useState<TabId>(preferredTab);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
@@ -149,56 +163,44 @@ export default function ToolsIntegrations() {
     const [selectedTool, setSelectedTool] = useState<IntegrationTool | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Store integration tokens in a local dictionary for the inputs
-    const [inputTokens, setInputTokens] = useState<Record<string, string>>({});
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
 
     const connectedIntegrations = useUIStore((s) => s.connectedIntegrations);
     const setConnectedIntegrations = useUIStore((s) => s.setConnectedIntegrations);
     const addConnectedIntegration = useUIStore((s) => s.addConnectedIntegration);
     const removeConnectedIntegration = useUIStore((s) => s.removeConnectedIntegration);
 
-    // Map tool.id to Vault key names for development tools
-    const getKeyName = (toolId: string) => {
-        if (toolId === "github") return "GITHUB_TOKEN";
-        if (toolId === "asana") return "ASANA_ACCESS_TOKEN";
-        if (toolId === "jira") return "JIRA_API_TOKEN";
-        if (toolId === "enterprise-auth") return "ENTERPRISE_AUTH_TOKEN";
-        return `${toolId.toUpperCase().replace(/-/g, "_")}_TOKEN`;
-    };
-
-    // Reverse map for setting UI state from Vault keys
-    const getTokenId = (keyName: string) => {
-        if (keyName === "GITHUB_TOKEN") return "github";
-        if (keyName === "ASANA_ACCESS_TOKEN") return "asana";
-        if (keyName === "JIRA_API_TOKEN") return "jira";
-        if (keyName === "ENTERPRISE_AUTH_TOKEN") return "enterprise-auth";
-        return keyName.replace("_TOKEN", "").toLowerCase().replace(/_/g, "-");
-    };
-
     // Fetch initial state from Vault
+    useEffect(() => {
+        setLocalTab(preferredTab);
+    }, [preferredTab]);
+
     useEffect(() => {
         const fetchIntegrations = async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/vault/list`);
+                const res = await fetchWithTimeout(`${API_BASE}/api/vault/list`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = (await res.json()) as VaultListItem[];
 
                     // Extract enterprise auth token if it exists
-                    const enterpriseToken = data.find((t: any) => t.key_name === "ENTERPRISE_AUTH_TOKEN");
+                    const enterpriseToken = data.find((t) => t.key_name === "ENTERPRISE_AUTH_TOKEN");
                     if (enterpriseToken) {
                         setAuthToken(enterpriseToken.masked_value);
                     }
 
                     // Extract all connected OAUTH or DEV tools
                     const connectedProviders = data
-                        .filter((t: any) => t.category === "DEV" || t.category === "OAUTH")
-                        .map((t: any) => getTokenId(t.key_name));
+                        .filter((t) => t.category === "DEV" || t.category === "OAUTH")
+                        .map((t) => getTokenId(t.key_name));
 
                     setConnectedIntegrations(connectedProviders);
+                } else {
+                    setActionError(await readErrorMessage(res, "Failed to fetch integrations."));
                 }
             } catch (err) {
                 console.error("Failed to fetch integrations", err);
+                setActionError("Failed to fetch integrations.");
             }
         };
         fetchIntegrations();
@@ -234,12 +236,13 @@ export default function ToolsIntegrations() {
 
         const nango = new Nango({ publicKey: process.env.NEXT_PUBLIC_NANGO_PUBLIC_KEY || "your-public-key" });
         const connectionId = `plot-user-${selectedTool.id}-primary`;
+        setActionError(null);
 
         try {
             await nango.auth(selectedTool.id, connectionId);
 
             // Callback to backend
-            const res = await fetch(`${API_BASE}/api/integrations/callback`, {
+            const res = await fetchWithTimeout(`${API_BASE}/api/integrations/callback`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -248,12 +251,20 @@ export default function ToolsIntegrations() {
                 })
             });
 
-            if (res.ok) {
-                addConnectedIntegration(selectedTool.id);
-                setIsModalOpen(false);
+            if (!res.ok) {
+                const detail = await readErrorMessage(
+                    res,
+                    `Failed to connect ${selectedTool.name} (HTTP ${res.status}).`
+                );
+                throw new Error(detail);
             }
-        } catch (err) {
+
+            addConnectedIntegration(selectedTool.id);
+            setIsModalOpen(false);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Nango auth failed.";
             console.error("Nango Auth Failed", err);
+            setActionError(message);
         }
     };
 
@@ -274,6 +285,11 @@ export default function ToolsIntegrations() {
                         <p className="text-sm text-slate-600 dark:text-slate-400">Manage apps, internal tools, and MCP servers for your CrewAI agents</p>
                     </div>
                 </div>
+                {actionError && (
+                    <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                        {actionError}
+                    </div>
+                )}
 
                 {/* ── Tabs ── */}
                 <div className="border-b border-slate-200 dark:border-slate-800 mb-6">
@@ -435,8 +451,9 @@ export default function ToolsIntegrations() {
                                                             onClick={async () => {
                                                                 setLoadingAction(`disconnect-${tool.id}`);
                                                                 const connectionId = `plot-user-${tool.id}-primary`;
+                                                                setActionError(null);
                                                                 try {
-                                                                    const res = await fetch(`${API_BASE}/api/integrations/disconnect`, {
+                                                                    const res = await fetchWithTimeout(`${API_BASE}/api/integrations/disconnect`, {
                                                                         method: "POST",
                                                                         headers: { "Content-Type": "application/json" },
                                                                         body: JSON.stringify({
@@ -444,12 +461,20 @@ export default function ToolsIntegrations() {
                                                                             connection_id: connectionId
                                                                         })
                                                                     });
-                                                                    if (res.ok) {
-                                                                        removeConnectedIntegration(tool.id);
-                                                                        setExpandedCard(null);
+                                                                    if (!res.ok) {
+                                                                        const detail = await readErrorMessage(
+                                                                            res,
+                                                                            `Failed to disconnect ${tool.name} (HTTP ${res.status}).`
+                                                                        );
+                                                                        throw new Error(detail);
                                                                     }
-                                                                } catch (err) {
+
+                                                                    removeConnectedIntegration(tool.id);
+                                                                    setExpandedCard(null);
+                                                                } catch (err: unknown) {
+                                                                    const message = err instanceof Error ? err.message : "Failed to disconnect integration.";
                                                                     console.error("Failed to disconnect", err);
+                                                                    setActionError(message);
                                                                 } finally {
                                                                     setLoadingAction(null);
                                                                 }
@@ -504,8 +529,9 @@ export default function ToolsIntegrations() {
                                 <button
                                     onClick={async () => {
                                         setLoadingAction("save-enterprise-auth");
+                                        setActionError(null);
                                         try {
-                                            const res = await fetch(`${API_BASE}/api/vault/save`, {
+                                            const res = await fetchWithTimeout(`${API_BASE}/api/vault/save`, {
                                                 method: "POST",
                                                 headers: { "Content-Type": "application/json" },
                                                 body: JSON.stringify({
@@ -514,15 +540,23 @@ export default function ToolsIntegrations() {
                                                     category: "DEV"
                                                 })
                                             });
-                                            if (res.ok) {
-                                                // Temporarily show checkmark by mimicking copied Token state
-                                                setCopiedToken(true);
-                                                setTimeout(() => setCopiedToken(false), 2000);
-                                                // Since the endpoint doesn't return the masked token immediately, 
-                                                // we can leave the input as-is or refetch. Next reload it will be masked.
+                                            if (!res.ok) {
+                                                const detail = await readErrorMessage(
+                                                    res,
+                                                    `Failed to save auth token (HTTP ${res.status}).`
+                                                );
+                                                throw new Error(detail);
                                             }
-                                        } catch (err) {
+
+                                            // Temporarily show checkmark by mimicking copied Token state
+                                            setCopiedToken(true);
+                                            setTimeout(() => setCopiedToken(false), 2000);
+                                            // Since the endpoint doesn't return the masked token immediately,
+                                            // we can leave the input as-is or refetch. Next reload it will be masked.
+                                        } catch (err: unknown) {
+                                            const message = err instanceof Error ? err.message : "Failed to save auth token.";
                                             console.error("Failed to save auth token", err);
+                                            setActionError(message);
                                         } finally {
                                             setLoadingAction(null);
                                         }
@@ -566,7 +600,7 @@ export default function ToolsIntegrations() {
                             </div>
                         </div>
 
-                        {/* MCP Servers placeholder */}
+                        {/* MCP Servers */}
                         <div className="bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 text-center">
                             <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400">

@@ -8,6 +8,7 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useUIStore, ProviderOption } from "@/store/uiStore";
 import { useChatStore, ProviderImageState, ResponseSet } from "@/store/chatStore";
@@ -22,17 +23,25 @@ import MentorOverlay from "@/components/mentor/MentorOverlay";
 import OtherToolsToggle from "@/components/tools/OtherToolsToggle";
 import OtherToolsMenu from "@/components/tools/OtherToolsMenu";
 import ToolExecutionStream from "@/components/tools/ToolExecutionStream";
-import CrewStudio from "@/components/autonomous/CrewStudio";
-import ToolsIntegrations from "@/components/autonomous/ToolsIntegrations";
-import Traces from "@/components/autonomous/Traces";
-import Automations from "@/components/autonomous/Automations";
-import LLMConnections from "@/components/autonomous/LLMConnections";
-import EnvVariables from "@/components/autonomous/EnvVariables";
-import Settings from "@/components/autonomous/Settings";
-import Templates from "@/components/autonomous/Templates";
-import AgentsRepository from "@/components/autonomous/AgentsRepository";
-import { UsagePage } from "@/components/autonomous/Usage";
-import { BillingPage } from "@/components/autonomous/Billing";
+
+const autonomousLoading = () => <div className="flex-1 bg-white dark:bg-[#171717]" />;
+const CrewStudio = dynamic(() => import("@/components/autonomous/CrewStudio"), { loading: autonomousLoading });
+const ToolsIntegrations = dynamic(() => import("@/components/autonomous/ToolsIntegrations"), { loading: autonomousLoading });
+const Traces = dynamic(() => import("@/components/autonomous/Traces"), { loading: autonomousLoading });
+const Automations = dynamic(() => import("@/components/autonomous/Automations"), { loading: autonomousLoading });
+const LLMConnections = dynamic(() => import("@/components/autonomous/LLMConnections"), { loading: autonomousLoading });
+const EnvVariables = dynamic(() => import("@/components/autonomous/EnvVariables"), { loading: autonomousLoading });
+const Settings = dynamic(() => import("@/components/autonomous/Settings"), { loading: autonomousLoading });
+const Templates = dynamic(() => import("@/components/autonomous/Templates"), { loading: autonomousLoading });
+const AgentsRepository = dynamic(() => import("@/components/autonomous/AgentsRepository"), { loading: autonomousLoading });
+const UsagePage = dynamic(
+    () => import("@/components/autonomous/Usage").then((mod) => mod.UsagePage),
+    { loading: autonomousLoading }
+);
+const BillingPage = dynamic(
+    () => import("@/components/autonomous/Billing").then((mod) => mod.BillingPage),
+    { loading: autonomousLoading }
+);
 
 const ALL_PROVIDERS: { id: ProviderOption; label: string }[] = [
     { id: "openai", label: "Openai" },

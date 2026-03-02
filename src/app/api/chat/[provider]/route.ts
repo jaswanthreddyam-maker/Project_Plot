@@ -1,7 +1,7 @@
-/**
- * ════════════════════════════════════════════════════════════════
- * Isolated Streaming API Route — /api/chat/[provider]
- * ════════════════════════════════════════════════════════════════
+﻿/**
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ * Isolated Streaming API Route â€” /api/chat/[provider]
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *
  * Dev mode: Accepts API key directly in the request body.
  * Production: Would use vault decryption from session JWT.
@@ -39,9 +39,8 @@ export async function POST(
     try {
         const { provider: providerSlug } = await params;
 
-        console.log(`\n[/api/chat/${providerSlug}] ─── Request received ───`);
 
-        // ── 1. Validate provider slug ────────────────────────
+        // â”€â”€ 1. Validate provider slug â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (!VALID_PROVIDERS.includes(providerSlug as ProviderName)) {
             console.error(`[/api/chat] Invalid provider: ${providerSlug}`);
             return NextResponse.json(
@@ -52,14 +51,12 @@ export async function POST(
 
         const provider = providerSlug as ProviderName;
 
-        // ── 2. Parse request body ────────────────────────────
+        // â”€â”€ 2. Parse request body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const body = await req.json().catch(() => ({}));
         const messages = normalizeMessages(body.messages);
         const apiKey: string | undefined = body.apiKey;
         const options = body.options || {};
 
-        console.log(`[/api/chat/${provider}] Messages: ${messages.length}`);
-        console.log(`[/api/chat/${provider}] Options received`);
 
         if (!messages.length) {
             return NextResponse.json(
@@ -68,7 +65,7 @@ export async function POST(
             );
         }
 
-        // ── 3. Instantiate ProviderManager ───────────────────
+        // â”€â”€ 3. Instantiate ProviderManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const manager = new ProviderManager();
 
         if (provider === "ollama") {
@@ -84,16 +81,14 @@ export async function POST(
             manager.registerProvider(provider, apiKey);
         }
 
-        console.log(`[/api/chat/${provider}] Provider registered, starting stream...`);
 
-        // ── 4. Stream the response ──────────────────────────
+        // â”€â”€ 4. Stream the response â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const stream = await manager.streamFromProvider(
             provider,
             messages,
             options
         );
 
-        console.log(`[/api/chat/${provider}] Stream created successfully`);
 
         return new Response(stream, {
             headers: {
@@ -104,7 +99,7 @@ export async function POST(
             },
         });
     } catch (err) {
-        console.error("[/api/chat] ═══ UNHANDLED ERROR ═══");
+        console.error("[/api/chat] â•â•â• UNHANDLED ERROR â•â•â•");
         console.error("[/api/chat] Error:", err);
         console.error("[/api/chat] Stack:", err instanceof Error ? err.stack : "N/A");
         return NextResponse.json(

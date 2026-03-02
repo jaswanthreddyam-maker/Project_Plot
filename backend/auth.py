@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta
 
@@ -13,6 +14,7 @@ JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "v-61-plot-ai-secret-key-chang
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 router = APIRouter(tags=["auth"])
+logger = logging.getLogger(__name__)
 
 class GoogleTokenRequest(BaseModel):
     token: str
@@ -32,8 +34,7 @@ async def verify_google_token(req: GoogleTokenRequest):
         )
 
         if google_response.status_code != 200:
-            import logging
-            logging.error(f"Google Token Verification Failed: {google_response.text}")
+            logger.error("Google token verification failed: %s", google_response.text)
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid Google Access Token: {google_response.text}"
@@ -52,11 +53,14 @@ async def verify_google_token(req: GoogleTokenRequest):
         }
         encoded_jwt = jwt.encode(payload, JWT_SECRET_KEY, algorithm=ALGORITHM)
         return {"access_token": encoded_jwt, "token_type": "bearer"}
-
-    except Exception as e:
-        import logging
-        logging.error(f"Google Auth Error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except requests.RequestException as exc:
+        logger.exception("Google auth request failed")
+        raise HTTPException(status_code=502, detail="Failed to verify Google token") from exc
+    except Exception as exc:
+        logger.exception("Unexpected Google auth error")
+        raise HTTPException(status_code=500, detail="Unexpected Google auth error") from exc
 
 @router.post("/api/auth/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -64,9 +68,13 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     Issues a JWT Bearer token for FastAPI APIs.
     Username is treated as the canonical subject (email in current flow).
     """
+    username = form_data.username.strip().lower()
+    if not username or not form_data.password:
+        raise HTTPException(status_code=400, detail="Username and password are required")
+
     access_token_expires = timedelta(minutes=60 * 24 * 7) # 7 days
     payload = {
-        "sub": form_data.username,
+        "sub": username,
         "exp": datetime.utcnow() + access_token_expires
     }
     encoded_jwt = jwt.encode(payload, JWT_SECRET_KEY, algorithm=ALGORITHM)

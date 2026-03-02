@@ -1,4 +1,5 @@
 import { useNetworkStore } from "@/store/networkStore";
+import type { ApiErrorPayload } from "@/types/api";
 
 /**
  * Centralized API configuration.
@@ -174,6 +175,18 @@ export async function fetchWithTimeout(
         throw error;
     } finally {
         clearTimeout(timeoutId);
+    }
+}
+
+export async function readErrorMessage(
+    response: Response,
+    fallback: string
+): Promise<string> {
+    try {
+        const payload = (await response.json()) as ApiErrorPayload;
+        return payload.detail || payload.error || payload.message || fallback;
+    } catch {
+        return fallback;
     }
 }
 

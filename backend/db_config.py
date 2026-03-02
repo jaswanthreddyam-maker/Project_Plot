@@ -1,8 +1,20 @@
 import os
-from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Float, Integer, JSON, text
-from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
 from datetime import datetime
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    create_engine,
+    event,
+    text,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 # SQLite WAL Configuration
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db", "flow_state.db")
@@ -19,9 +31,6 @@ engine = create_engine(
         "timeout": 15,
     }
 )
-
-# Apply WAL pragmas upon engine connection
-from sqlalchemy import event
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -170,6 +179,18 @@ class Template(Base):
     icon_name = Column(String, nullable=True)
     required_keys = Column(JSON, nullable=True)
     workflow_config = Column(JSON, nullable=True)
+
+
+class ProjectRecord(Base):
+    __tablename__ = "projects"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=False)
+    title = Column(String, nullable=False, default="Untitled Project")
+    description = Column(String, nullable=True, default="")
+    graph = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 # Auto-create all tables
 Base.metadata.create_all(engine)

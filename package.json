@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:frontend": "next dev --webpack --hostname 127.0.0.1 --port 3000",
+    "dev:frontend": "next dev --webpack --hostname localhost --port 3000",
     "dev:backend": ".\\.venv313\\Scripts\\python.exe -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000",
     "dev:worker": ".\\.venv313\\Scripts\\python.exe -m celery -A backend.worker.celery_app worker --pool=solo --concurrency=1 --loglevel=info",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-clean.ps1",
@@ -39,6 +39,7 @@
     "lucide-react": "^0.575.0",
     "mermaid": "^11.12.3",
     "next": "16.1.6",
+    "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.4.6",
     "nodemailer": "^8.0.1",
     "openai": "^6.24.0",

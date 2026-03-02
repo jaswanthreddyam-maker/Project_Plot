@@ -1,45 +1,22 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
-import { API_BASE } from "@/lib/api";
+import { signIn, useSession } from "next-auth/react";
+import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
 
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-
-function GoogleLoginButton({ onSuccess, onError, disabled }: { onSuccess: (token: string) => void, onError: (msg: string) => void, disabled: boolean }) {
-    const login = useGoogleLogin({
-        onSuccess: (codeResponse) => {
-            if (codeResponse.access_token) {
-                onSuccess(codeResponse.access_token);
-            } else {
-                onError("Google login failed to return an access token.");
-            }
-        },
-        onError: (error) => onError(`Google login failed: ${error}`),
-    });
-
+function GoogleIcon() {
     return (
-        <button
-            type="button"
-            onClick={() => login()}
-            disabled={disabled}
-            className="w-full flex items-center justify-center gap-3 py-2.5 rounded-2xl border border-gray-300 bg-white text-sm font-medium text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-5"
-        >
-            <svg width="18" height="18" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-            </svg>
-            Continue with Google
-        </button>
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+        </svg>
     );
 }
 
 function LoginPageContent() {
-    const router = useRouter();
-    const searchParams = useSearchParams();
+    const { data: session, status } = useSession();
 
     // UI State
     const [isRegister, setIsRegister] = useState(false);
@@ -50,9 +27,11 @@ function LoginPageContent() {
     // Auth State
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [hasTriedGoogleExchange, setHasTriedGoogleExchange] = useState(false);
 
     const [formReady, setFormReady] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [googleAttemptId, setGoogleAttemptId] = useState(0);
 
     useEffect(() => {
         const t = setTimeout(() => setFormReady(true), 100);
@@ -63,7 +42,6 @@ function LoginPageContent() {
         // Redirection on mount if token already exists
         const token = localStorage.getItem("plot_auth_token");
         if (token) {
-            console.log("[Login] Token found. Redirecting to workspace...");
             window.location.href = "/workspace";
         }
     }, []);
@@ -73,37 +51,83 @@ function LoginPageContent() {
         window.location.href = "/workspace";
     };
 
-    const handleGoogleSuccess = async (googleAccessToken: string) => {
+    useEffect(() => {
+        if (status !== "authenticated" || !session?.googleAccessToken || hasTriedGoogleExchange) return;
+
+        let cancelled = false;
+
+        const exchangeGoogleToken = async () => {
+            setError("");
+            setLoading(true);
+            setHasTriedGoogleExchange(true);
+            try {
+                const res = await fetchWithTimeout(`${API_BASE}/api/auth/google`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: session.googleAccessToken }),
+                    timeout: 15000,
+                });
+                if (!res.ok) {
+                    const detail = await readErrorMessage(res, "Google authentication failed");
+                    throw new Error(detail);
+                }
+                const data = await res.json();
+                if (!data.access_token) {
+                    throw new Error("Invalid token received from backend");
+                }
+                if (!cancelled) {
+                    processLoginSuccess(data.access_token);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err instanceof Error ? err.message : "An error occurred during Google sign in");
+                    setLoading(false);
+                }
+            }
+        };
+
+        void exchangeGoogleToken();
+        return () => {
+            cancelled = true;
+        };
+    }, [session?.googleAccessToken, status, hasTriedGoogleExchange]);
+
+    const handleGoogleSignIn = async () => {
         setError("");
         setLoading(true);
-        try {
-            console.log("[Google Auth] Successful login from popup. Token type check...");
-            // Log the first few chars to see if it's a JWT (starts with eyJ)
-            console.log("Sending token to backend:", googleAccessToken.substring(0, 10) + "...");
+        setHasTriedGoogleExchange(false);
+        setGoogleAttemptId((id) => id + 1);
 
-            const res = await fetch(`${API_BASE}/api/auth/google`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: googleAccessToken }),
+        // Keep host consistent with NEXTAUTH_URL/Google console for local OAuth.
+        if (typeof window !== "undefined" && window.location.hostname === "127.0.0.1") {
+            const url = new URL(window.location.href);
+            url.hostname = "localhost";
+            window.location.href = url.toString();
+            return;
+        }
+
+        try {
+            await signIn("google", {
+                callbackUrl: `${window.location.origin}/login?oauth=google`,
+            }, {
+                prompt: "select_account",
             });
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || "Google authentication failed");
-            }
-            if (data.access_token) {
-                processLoginSuccess(data.access_token);
-            } else {
-                throw new Error("Invalid token received from backend");
-            }
         } catch (err) {
-            setError(err instanceof Error ? err.message : "An error occurred during Google sign in");
+            setError(err instanceof Error ? err.message : "Google sign-in failed. Please try again.");
             setLoading(false);
         }
     };
 
-    const handleGoogleError = (errMsg: string) => {
-        setError(errMsg);
-    };
+    useEffect(() => {
+        if (!loading || googleAttemptId === 0) return;
+
+        const timer = setTimeout(() => {
+            setLoading(false);
+            setError("Google sign-in did not start. Check localhost auth config and retry.");
+        }, 12000);
+
+        return () => clearTimeout(timer);
+    }, [loading, googleAttemptId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -115,31 +139,33 @@ function LoginPageContent() {
 
         try {
             if (isRegister) {
-                const res = await fetch(`${API_BASE}/api/auth/register`, {
+                const res = await fetchWithTimeout("/api/auth/register", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email: normalizedEmail, password, name: normalizedName }),
+                    timeout: 15000,
                 });
                 if (!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.error || "Registration failed");
+                    const detail = await readErrorMessage(res, "Registration failed");
+                    throw new Error(detail);
                 }
             }
 
-            // Raw JWT Login against FastAPI OAuth2 endpoint
+            // Credentials login against local Next.js auth route.
             const formData = new URLSearchParams();
             formData.append("username", normalizedEmail);
             formData.append("password", password);
 
-            const apiRes = await fetch(`${API_BASE}/api/auth/login`, {
+            const apiRes = await fetchWithTimeout("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
                 body: formData,
+                timeout: 15000,
             });
 
             if (!apiRes.ok) {
-                const errorData = await apiRes.json().catch(() => ({}));
-                throw new Error(errorData.detail || "Invalid credentials");
+                const detail = await readErrorMessage(apiRes, "Invalid credentials");
+                throw new Error(detail);
             }
 
             const data = await apiRes.json();
@@ -183,21 +209,6 @@ function LoginPageContent() {
                         <div className="p-3 mb-5 rounded-lg bg-red-50 border border-red-200">
                             <p className="text-sm font-medium text-red-600 text-center">{error}</p>
                         </div>
-                    )}
-
-                    {GOOGLE_CLIENT_ID && (
-                        <>
-                            <GoogleLoginButton
-                                onSuccess={handleGoogleSuccess}
-                                onError={handleGoogleError}
-                                disabled={loading}
-                            />
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="flex-1 h-px bg-gray-200"></div>
-                                <span className="text-xs text-gray-400">or</span>
-                                <div className="flex-1 h-px bg-gray-200"></div>
-                            </div>
-                        </>
                     )}
 
                     {!formReady ? (
@@ -293,6 +304,21 @@ function LoginPageContent() {
                         </form>
                     )}
 
+                    <div className="flex items-center my-4">
+                        <hr className="flex-grow border-gray-300 dark:border-neutral-700" />
+                        <span className="px-3 text-sm text-gray-500">or</span>
+                        <hr className="flex-grow border-gray-300 dark:border-neutral-700" />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => void handleGoogleSignIn()}
+                        disabled={loading}
+                        className="w-full border border-gray-300 dark:border-neutral-700 text-black dark:text-white rounded-md py-2 flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <GoogleIcon />
+                        Continue with Google
+                    </button>
+
                     <div className="mt-5 text-center">
                         <button
                             onClick={() => {
@@ -318,10 +344,8 @@ function LoginPageContent() {
 
 export default function LoginPage() {
     return (
-        <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-            <Suspense fallback={<div className="min-h-screen bg-white" />}>
-                <LoginPageContent />
-            </Suspense>
-        </GoogleOAuthProvider>
+        <Suspense fallback={<div className="min-h-screen bg-white" />}>
+            <LoginPageContent />
+        </Suspense>
     );
 }
