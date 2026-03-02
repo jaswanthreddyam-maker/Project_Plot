@@ -70,6 +70,10 @@ function getErrorName(error: unknown): string | null {
 
 function mergeHeaders(input: RequestInfo | URL, init?: RequestInit): Headers {
     const headers = new Headers();
+
+    // 🚀 FIX: Idhi add cheyakapothe malli CORS or Ngrok page daggara hang avthundhi
+    headers.set("ngrok-skip-browser-warning", "true");
+
     if (input instanceof Request) {
         input.headers.forEach((value, key) => headers.set(key, value));
     }
