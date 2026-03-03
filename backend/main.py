@@ -46,6 +46,12 @@ async_redis_client = redis_async.from_url(
 )
 
 
+# ... (Top imports same as yours)
+
+app = FastAPI(title="Plot Autonomous AI Orchestrator")
+
+# ... (Redis setup same as yours)
+
 def _frontend_origins() -> list[str]:
     raw_value = os.environ.get("FRONTEND_URL") or os.environ.get("NEXT_PUBLIC_FRONTEND_URL")
 
@@ -58,6 +64,7 @@ def _frontend_origins() -> list[str]:
             "http://127.0.0.1:3000",
             "http://localhost:3001",
             "http://127.0.0.1:3001",
+            "https://project-plot-gamma.vercel.app", # 🚀 FIX: Vercel URL thinnaga add chesa
         ]
 
     origins = [origin for origin in candidates if origin and origin != "*"]
@@ -69,8 +76,11 @@ app.add_middleware(
     allow_origins=_frontend_origins(),
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    # 🚀 FIX: Ngrok warning skip cheyadaniki header allowance icha
+    allow_headers=["*", "ngrok-skip-browser-warning"], 
 )
+
+# ... (Rest of your app routes and middleware stay the same)
 
 
 @app.get("/api/health")
