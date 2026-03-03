@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
-import { API_BASE, fetchWithTimeout, readErrorMessage } from "@/lib/api";
+import { fetchWithTimeout, readErrorMessage } from "@/lib/api";
 
 function GoogleIcon() {
     return (
@@ -67,7 +67,7 @@ function LoginPageContent() {
             setLoading(true);
             setHasTriedGoogleExchange(true);
             try {
-                const res = await fetchWithTimeout(`${API_BASE}/api/auth/google`, {
+                const res = await fetchWithTimeout("/api/auth/google", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ token: session.googleAccessToken }),
