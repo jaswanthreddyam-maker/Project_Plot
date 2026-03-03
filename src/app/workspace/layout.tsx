@@ -12,7 +12,6 @@ import Sidebar from "@/components/workspace/Sidebar";
 import AppSidebar from "@/components/layout/AppSidebar";
 import BackendOfflineBanner from "@/components/layout/BackendOfflineBanner";
 import SettingsModal from "@/components/workspace/SettingsModal";
-import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function WorkspaceLayout({
     children,
@@ -28,25 +27,23 @@ export default function WorkspaceLayout({
         isWorkspaceSubRoute(pathname) ? "autonomous" : activeWorkspace;
 
     return (
-        <ProtectedRoute>
-            <div className="flex h-screen overflow-hidden bg-white dark:bg-[#171717]">
-                {/* Conditional Sidebar */}
-                {!hideSidebarForPlotStudio &&
-                    (effectiveWorkspace === "autonomous" ? (
-                        <AppSidebar />
-                    ) : (
-                        <Sidebar />
-                    ))}
+        <div className="flex h-screen overflow-hidden bg-white dark:bg-[#171717]">
+            {/* Conditional Sidebar */}
+            {!hideSidebarForPlotStudio &&
+                (effectiveWorkspace === "autonomous" ? (
+                    <AppSidebar />
+                ) : (
+                    <Sidebar />
+                ))}
 
-                {/* Main Content */}
-                <main className="flex-1 flex flex-col overflow-hidden">
-                    <BackendOfflineBanner />
-                    {children}
-                </main>
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col overflow-hidden">
+                <BackendOfflineBanner />
+                {children}
+            </main>
 
-                {/* Modals */}
-                <SettingsModal />
-            </div>
-        </ProtectedRoute>
+            {/* Modals */}
+            <SettingsModal />
+        </div>
     );
 }
