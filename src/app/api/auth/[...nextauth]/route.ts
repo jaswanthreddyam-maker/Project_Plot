@@ -2,41 +2,14 @@ import NextAuth from "next-auth";
 import type { NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const nextAuthSecret = process.env.NEXTAUTH_SECRET;
-
-if (!googleClientId) {
-    throw new Error("Missing Google ID");
-}
-
-if (!googleClientSecret) {
-    throw new Error("Missing Google Secret");
-}
-
-if (!nextAuthSecret) {
-    throw new Error("Missing NextAuth Secret");
-}
-
 const authOptions: NextAuthConfig = {
-    cookies: {
-        pkceCodeVerifier: {
-            name: 'next-auth.pkce.code_verifier',
-            options: {
-                httpOnly: true,
-                sameSite: 'none',
-                path: '/',
-                secure: true,
-            },
-        },
-    },
-    secret: nextAuthSecret,
     trustHost: true,
-    debug: process.env.NODE_ENV === "development",
+    secret: process.env.NEXTAUTH_SECRET,
     providers: [
         GoogleProvider({
-            clientId: googleClientId,
-            clientSecret: googleClientSecret,
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            checks: ["none"],
         }),
     ],
     pages: {
@@ -44,18 +17,6 @@ const authOptions: NextAuthConfig = {
     },
     session: {
         strategy: "jwt",
-    },
-    callbacks: {
-        async jwt({ token, account }) {
-            if (account?.provider === "google" && account.access_token) {
-                token.googleAccessToken = account.access_token;
-            }
-            return token;
-        },
-        async session({ session, token }) {
-            session.googleAccessToken = token.googleAccessToken as string | undefined;
-            return session;
-        },
     },
 };
 
