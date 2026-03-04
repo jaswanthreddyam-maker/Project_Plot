@@ -17,10 +17,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-white text-gray-900 antialiased" suppressHydrationWarning>
-        <Providers>{children}</Providers>
-        <AIAssistantBoundary />
+        <Providers>
+          {children}
+          <AIAssistantBoundary />
+        </Providers>
       </body>
     </html>
   );
 }
-

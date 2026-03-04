@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:frontend": "next dev --webpack --hostname localhost --port 3000",
+    "dev:frontend": "next dev --hostname localhost --port 3000",
     "dev:backend": ".\\.venv313\\Scripts\\python.exe -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000",
     "dev:worker": ".\\.venv313\\Scripts\\python.exe -m celery -A backend.worker.celery_app worker --pool=solo --concurrency=1 --loglevel=info",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-clean.ps1",
@@ -45,8 +45,10 @@
     "openai": "^6.24.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.6.5",
     "recharts": "^3.7.0",
+    "remark-gfm": "^4.0.1",
     "uuid": "^13.0.0",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"

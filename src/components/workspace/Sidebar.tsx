@@ -4,6 +4,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useUIStore } from "@/store/uiStore";
 import {
@@ -553,6 +554,21 @@ export default function Sidebar() {
                                     API Keys
                                 </div>
                             </button>
+
+                            <Link
+                                href="/autonomous"
+                                onClick={() => setSettingsMenuOpen(false)}
+                                className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-[#e3e3e3] hover:bg-gray-50 dark:hover:bg-[#282a2c] transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                                        <path d="M2 17l10 5 10-5" />
+                                        <path d="M2 12l10 5 10-5" />
+                                    </svg>
+                                    Plot Autonomous
+                                </div>
+                            </Link>
 
                             {/* Theme Item with Hover Submenu */}
                             <div className="relative group/theme-item">

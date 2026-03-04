@@ -67,6 +67,8 @@ export interface KnowledgeSource {
     name: string;
 }
 
+let lastWorkspaceSwitchAt = 0;
+
 interface UIState {
     // ── Sidebar ──────────────────────────────────────────
     sidebarCollapsed: boolean;
@@ -111,6 +113,7 @@ interface UIState {
     // ── Workspace Routing ────────────────────────────────
     activeWorkspace: "chat" | "autonomous";
     setActiveWorkspace: (workspace: "chat" | "autonomous") => void;
+    switchWorkspace: (workspace: "chat" | "autonomous", route?: AmpRoute) => void;
 
     // ── Enterprise AMP Routing ───────────────────────────
     activeAmpRoute: AmpRoute;
@@ -277,7 +280,33 @@ export const useUIStore = create<UIState>()(
             clearConversations: () => set({ conversations: [] }),
 
             activeWorkspace: "chat",
-            setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
+            // Legacy setter kept for backwards compatibility with older components.
+            // Prevent programmatic ping-pong by ignoring direct writes.
+            setActiveWorkspace: () => {
+                if (process.env.NODE_ENV !== "production") {
+                    console.warn("setActiveWorkspace is deprecated. Use switchWorkspace instead.");
+                }
+            },
+            switchWorkspace: (workspace, route = "crew-studio") =>
+                set((state) => {
+                    const now = Date.now();
+                    if (now - lastWorkspaceSwitchAt < 250) {
+                        return {};
+                    }
+                    lastWorkspaceSwitchAt = now;
+
+                    const updates: Partial<UIState> = {};
+
+                    if (state.activeWorkspace !== workspace) {
+                        updates.activeWorkspace = workspace;
+                    }
+
+                    if (workspace === "autonomous" && state.activeAmpRoute !== route) {
+                        updates.activeAmpRoute = route;
+                    }
+
+                    return updates;
+                }),
 
             // ── Enterprise AMP Routing ───────────────────────────
             activeAmpRoute: "crew-studio",
@@ -366,9 +395,13 @@ export const useUIStore = create<UIState>()(
                     }
                 };
             },
+            merge: (persistedState, currentState) => {
+                const persisted = (persistedState as Partial<UIState>) || {};
+                const { activeWorkspace: _ignoredWorkspace, ...rest } = persisted;
+                return { ...currentState, ...rest };
+            },
             partialize: (state) => ({
                 // ONLY persist these properties
-                activeWorkspace: state.activeWorkspace,
                 activeAmpRoute: state.activeAmpRoute,
                 llmConnections: state.llmConnections,
                 // Add API Keys and Vault info so they safely hydrate after initial SSR pass
@@ -387,3 +420,4 @@ export const useUIStore = create<UIState>()(
         }
     )
 );
+

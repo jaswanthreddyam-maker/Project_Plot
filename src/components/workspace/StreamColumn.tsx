@@ -4,7 +4,9 @@
  */
 "use client";
 
-import { ReactNode, useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
     useChatStore,
     selectStreamText,
@@ -28,46 +30,6 @@ const PROVIDER_LABELS: Record<string, string> = {
     ollama: "Ollama",
     referee: "Referee",
 };
-
-function renderInline(line: string, keyPrefix: string) {
-    const segments: ReactNode[] = [];
-    const tokenRegex = /(\*\*[^*]+\*\*|`[^`]+`)/g;
-    let lastIndex = 0;
-    let tokenMatch: RegExpExecArray | null = null;
-    let partIndex = 0;
-
-    while ((tokenMatch = tokenRegex.exec(line)) !== null) {
-        if (tokenMatch.index > lastIndex) {
-            segments.push(line.slice(lastIndex, tokenMatch.index));
-        }
-
-        const token = tokenMatch[0];
-        if (token.startsWith("**") && token.endsWith("**")) {
-            segments.push(
-                <strong key={`${keyPrefix}-b-${partIndex++}`} className="font-semibold">
-                    {token.slice(2, -2)}
-                </strong>
-            );
-        } else if (token.startsWith("`") && token.endsWith("`")) {
-            segments.push(
-                <code
-                    key={`${keyPrefix}-c-${partIndex++}`}
-                    className="px-1 py-0.5 rounded bg-gray-100 text-sm font-mono"
-                >
-                    {token.slice(1, -1)}
-                </code>
-            );
-        }
-
-        lastIndex = tokenRegex.lastIndex;
-    }
-
-    if (lastIndex < line.length) {
-        segments.push(line.slice(lastIndex));
-    }
-
-    return segments;
-}
 
 export default function StreamColumn({
     provider,
@@ -94,31 +56,6 @@ export default function StreamColumn({
         }
     }, [text, isStreaming]);
 
-    const formattedText = useMemo(() => {
-        if (!text) return null;
-        return text.split("\n").map((line, i) => {
-            if (line.startsWith("# ")) {
-                return (
-                    <h3 key={i} className="text-base font-bold text-gray-900 mt-3 mb-1">
-                        {line.slice(2)}
-                    </h3>
-                );
-            }
-            if (line.startsWith("## ")) {
-                return (
-                    <h4 key={i} className="text-sm font-semibold text-gray-800 mt-2 mb-1">
-                        {line.slice(3)}
-                    </h4>
-                );
-            }
-            if (!line.trim()) {
-                return <div key={i} className="h-2" />;
-            }
-
-            return <p key={i} className="text-sm text-gray-700 leading-relaxed">{renderInline(line, `line-${i}`)}</p>;
-        });
-    }, [text]);
-
     return (
         <div className="flex flex-col border border-gray-200 rounded-lg overflow-hidden bg-white">
             <div className="px-4 py-3 border-b border-gray-100">
@@ -135,7 +72,55 @@ export default function StreamColumn({
                     </div>
                 )}
 
-                {formattedText && <div className="space-y-0.5">{formattedText}</div>}
+                {text && (
+                    <div className="text-sm text-gray-700 leading-relaxed markdown-body">
+                        <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                                h1: ({ children }) => <h1 className="text-lg font-bold text-gray-900 mt-3 mb-1">{children}</h1>,
+                                h2: ({ children }) => <h2 className="text-base font-semibold text-gray-900 mt-3 mb-1">{children}</h2>,
+                                h3: ({ children }) => <h3 className="text-sm font-semibold text-gray-900 mt-2 mb-1">{children}</h3>,
+                                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                                ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                                li: ({ children }) => <li className="text-sm">{children}</li>,
+                                blockquote: ({ children }) => (
+                                    <blockquote className="border-l-2 border-gray-300 pl-3 italic text-gray-600 my-2">
+                                        {children}
+                                    </blockquote>
+                                ),
+                                code: ({ className, children }) => {
+                                    const isBlock = Boolean(className);
+                                    if (isBlock) {
+                                        return (
+                                            <code className="block rounded bg-gray-100 px-3 py-2 font-mono text-xs overflow-x-auto">
+                                                {children}
+                                            </code>
+                                        );
+                                    }
+                                    return (
+                                        <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs">
+                                            {children}
+                                        </code>
+                                    );
+                                },
+                                pre: ({ children }) => <pre className="my-2">{children}</pre>,
+                                a: ({ href, children }) => (
+                                    <a
+                                        href={href}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-blue-600 underline underline-offset-2"
+                                    >
+                                        {children}
+                                    </a>
+                                ),
+                            }}
+                        >
+                            {text}
+                        </ReactMarkdown>
+                    </div>
+                )}
 
                 {isStreaming && (
                     <span className="inline-block w-1.5 h-4 bg-gray-800 ml-0.5 animate-pulse rounded-sm" />

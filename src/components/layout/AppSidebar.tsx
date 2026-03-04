@@ -2,10 +2,8 @@
 
 import { useUIStore, AmpRoute } from "@/store/uiStore";
 import { API_BASE, fetchWithTimeout } from "@/lib/api";
-import { AMP_ROUTE_PATHS, ampRouteFromPathname } from "@/lib/workspaceRoutes";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { Trash2, LayoutTemplate } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -149,8 +147,6 @@ const NAV_SECTIONS: NavSection[] = [
 ];
 
 export default function AppSidebar() {
-    const router = useRouter();
-    const pathname = usePathname();
     const activeAmpRoute = useUIStore((s) => s.activeAmpRoute);
     const setActiveAmpRoute = useUIStore((s) => s.setActiveAmpRoute);
     const { theme, setTheme } = useTheme();
@@ -172,13 +168,6 @@ export default function AppSidebar() {
             .then(res => { if (res.ok) setIsWorkspaceReady(true); })
             .catch(err => console.error("Workspace init failed:", err));
     }, []);
-
-    useEffect(() => {
-        const routeFromPath = ampRouteFromPathname(pathname);
-        if (routeFromPath && routeFromPath !== activeAmpRoute) {
-            setActiveAmpRoute(routeFromPath);
-        }
-    }, [pathname, activeAmpRoute, setActiveAmpRoute]);
 
     // Show crew config section when on agents-repository route
     const showCrewConfig = activeAmpRoute === "agents-repository";
@@ -246,10 +235,6 @@ export default function AppSidebar() {
                                         onClick={() => {
                                             if (showSoonLabel) return;
                                             setActiveAmpRoute(item.id);
-                                            const targetPath = AMP_ROUTE_PATHS[item.id];
-                                            if (targetPath !== pathname) {
-                                                router.push(targetPath);
-                                            }
                                         }}
                                         className={`
                                             w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150

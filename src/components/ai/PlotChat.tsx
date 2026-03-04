@@ -5,6 +5,12 @@ import type { AIMessage } from "@/app/lib/schema";
 import { useAssistantStore } from "@/store/assistantStore";
 
 const OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate";
+const ASSISTANT_SYSTEM_PROMPT =
+    'You are a highly capable AI assistant. Always provide extremely concise, accurate, and direct answers. Omit all unnecessary fluff, introductory phrases, or massive explanations unless the user explicitly asks for a detailed breakdown. Never use markdown formatting symbols like "**", "#", or list bullets unless explicitly requested.';
+
+function sanitizeAssistantText(value: string): string {
+    return value.replace(/\*\*/g, "");
+}
 
 interface PlotChatProps {
     onClose: () => void;
@@ -33,27 +39,36 @@ function MessageBubble({ message }: { message: AIMessage }) {
 
 export function PlotChat({ onClose }: PlotChatProps) {
     const [inputValue, setInputValue] = useState("");
+    const [isGenerating, setIsGenerating] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const chatHistory = useAssistantStore((s) => s.chatHistory);
     const addMessage = useAssistantStore((s) => s.addMessage);
     const updateMessageContent = useAssistantStore((s) => s.updateMessageContent);
-    const isStreaming = useAssistantStore((s) => s.isStreaming);
     const setStreaming = useAssistantStore((s) => s.setStreaming);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [chatHistory, isStreaming]);
+    }, [chatHistory, isGenerating]);
 
     useEffect(() => {
         const id = window.setTimeout(() => inputRef.current?.focus(), 150);
         return () => window.clearTimeout(id);
     }, []);
 
+    useEffect(() => {
+        return () => {
+            abortControllerRef.current?.abort();
+            abortControllerRef.current = null;
+            setStreaming(false);
+        };
+    }, [setStreaming]);
+
     const handleSubmit = async () => {
         const prompt = inputValue.trim();
-        if (!prompt || isStreaming) return;
+        if (!prompt || isGenerating) return;
 
         setInputValue("");
         const timestamp = Date.now();
@@ -73,6 +88,12 @@ export function PlotChat({ onClose }: PlotChatProps) {
             timestamp: Date.now(),
         });
 
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        let accumulatedText = "";
+
+        setIsGenerating(true);
         setStreaming(true);
 
         try {
@@ -82,8 +103,14 @@ export function PlotChat({ onClose }: PlotChatProps) {
                 body: JSON.stringify({
                     model: "llama3",
                     prompt,
+                    system: ASSISTANT_SYSTEM_PROMPT,
+                    options: {
+                        temperature: 0.2,
+                        num_predict: 512,
+                    },
                     stream: true,
                 }),
+                signal: controller.signal,
             });
 
             if (!response.ok) {
@@ -100,7 +127,6 @@ export function PlotChat({ onClose }: PlotChatProps) {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = "";
-            let accumulatedText = "";
             let doneReceived = false;
 
             const consumeLine = (line: string) => {
@@ -119,7 +145,7 @@ export function PlotChat({ onClose }: PlotChatProps) {
 
                 const piece = chunk.response;
                 if (typeof piece === "string" && piece.length > 0) {
-                    accumulatedText += piece;
+                    accumulatedText = sanitizeAssistantText(accumulatedText + piece);
                     updateMessageContent(assistantId, accumulatedText);
                 }
 
@@ -150,6 +176,17 @@ export function PlotChat({ onClose }: PlotChatProps) {
                 updateMessageContent(assistantId, "I did not receive a response from Ollama.");
             }
         } catch (error) {
+            const isAbortError =
+                (error instanceof DOMException && error.name === "AbortError") ||
+                (error instanceof Error && error.name === "AbortError");
+
+            if (isAbortError) {
+                if (!accumulatedText.trim()) {
+                    updateMessageContent(assistantId, "Generation stopped.");
+                }
+                return;
+            }
+
             updateMessageContent(
                 assistantId,
                 error instanceof Error
@@ -157,8 +194,14 @@ export function PlotChat({ onClose }: PlotChatProps) {
                     : "Local Ollama request failed."
             );
         } finally {
+            abortControllerRef.current = null;
+            setIsGenerating(false);
             setStreaming(false);
         }
+    };
+
+    const handleStopGeneration = () => {
+        abortControllerRef.current?.abort();
     };
 
     return (
@@ -220,16 +263,29 @@ export function PlotChat({ onClose }: PlotChatProps) {
                         data-lpignore="true"
                         data-1p-ignore
                         placeholder="Ask Plot Assistant..."
-                        disabled={isStreaming}
+                        disabled={isGenerating}
                         className="flex-1 bg-transparent border-none text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none px-3"
                     />
-                    <button
-                        onClick={() => void handleSubmit()}
-                        disabled={!inputValue.trim() || isStreaming}
-                        className="rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3 py-2 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-                    >
-                        {isStreaming ? "..." : "Send"}
-                    </button>
+                    {isGenerating ? (
+                        <button
+                            onClick={handleStopGeneration}
+                            className="rounded-full bg-red-600 text-white px-3 py-2 text-xs font-semibold flex items-center gap-1.5"
+                            aria-label="Stop generation"
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <rect x="6" y="6" width="12" height="12" rx="1.5" />
+                            </svg>
+                            Stop
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => void handleSubmit()}
+                            disabled={!inputValue.trim()}
+                            className="rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3 py-2 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                        >
+                            Send
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

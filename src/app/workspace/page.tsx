@@ -1,47 +1,19 @@
 /**
- * Workspace Page
- *
- * Routes content based on activeAmpRoute from Zustand.
- * Renders provider toggles, stacked response sets, referee summaries,
- * and image fan-out grids for the crew-studio route.
+ * Workspace Page (Chat Only)
  */
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
-import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
+import { useMemo, useEffect } from "react";
 import { useUIStore, ProviderOption } from "@/store/uiStore";
 import { useChatStore, ProviderImageState, ResponseSet } from "@/store/chatStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { ampRouteFromPathname, isWorkspaceSubRoute } from "@/lib/workspaceRoutes";
 import StreamColumn from "@/components/workspace/StreamColumn";
 import PromptInput from "@/components/workspace/PromptInput";
-import ProfileDropdown from "@/components/workspace/ProfileDropdown";
 import ComparisonToggle from "@/components/workspace/ComparisonToggle";
 import AssistantToggle from "@/components/workspace/AssistantToggle";
 import MentorOverlay from "@/components/mentor/MentorOverlay";
-import OtherToolsToggle from "@/components/tools/OtherToolsToggle";
-import OtherToolsMenu from "@/components/tools/OtherToolsMenu";
 import ToolExecutionStream from "@/components/tools/ToolExecutionStream";
-
-const autonomousLoading = () => <div className="flex-1 bg-white dark:bg-[#171717]" />;
-const CrewStudio = dynamic(() => import("@/components/autonomous/CrewStudio"), { loading: autonomousLoading });
-const ToolsIntegrations = dynamic(() => import("@/components/autonomous/ToolsIntegrations"), { loading: autonomousLoading });
-const Traces = dynamic(() => import("@/components/autonomous/Traces"), { loading: autonomousLoading });
-const Automations = dynamic(() => import("@/components/autonomous/Automations"), { loading: autonomousLoading });
-const LLMConnections = dynamic(() => import("@/components/autonomous/LLMConnections"), { loading: autonomousLoading });
-const EnvVariables = dynamic(() => import("@/components/autonomous/EnvVariables"), { loading: autonomousLoading });
-const Settings = dynamic(() => import("@/components/autonomous/Settings"), { loading: autonomousLoading });
-const Templates = dynamic(() => import("@/components/autonomous/Templates"), { loading: autonomousLoading });
-const AgentsRepository = dynamic(() => import("@/components/autonomous/AgentsRepository"), { loading: autonomousLoading });
-const UsagePage = dynamic(
-    () => import("@/components/autonomous/Usage").then((mod) => mod.UsagePage),
-    { loading: autonomousLoading }
-);
-const BillingPage = dynamic(
-    () => import("@/components/autonomous/Billing").then((mod) => mod.BillingPage),
-    { loading: autonomousLoading }
-);
+import WorkspaceHeader from "@/components/layout/WorkspaceHeader";
 
 const ALL_PROVIDERS: { id: ProviderOption; label: string }[] = [
     { id: "openai", label: "Openai" },
@@ -167,21 +139,16 @@ function ImageProviderCard({
 }
 
 export default function WorkspacePage() {
-    const pathname = usePathname();
     const isMobile = useIsMobile();
-    const activeAmpRoute = useUIStore((s) => s.activeAmpRoute);
     const activeProviders = useUIStore((s) => s.activeProviders);
     const setActiveProviders = useUIStore((s) => s.setActiveProviders);
     const toggleProvider = useUIStore((s) => s.toggleProvider);
     const comparisonMode = useUIStore((s) => s.comparisonMode);
+    const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+    const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
     const responseSets = useChatStore((s) => s.responseSets);
-    const [hasToken] = useState(
-        () => typeof window !== "undefined" && !!localStorage.getItem("plot_auth_token")
-    );
-    const effectiveAmpRoute = ampRouteFromPathname(pathname) || activeAmpRoute;
-    const forceAutonomousRoute = isWorkspaceSubRoute(pathname);
 
-    const AVAILABLE_PROVIDERS = useMemo(() => {
+    const availableProviders = useMemo(() => {
         if (isMobile) return ALL_PROVIDERS.filter((p) => p.id !== "ollama");
         return ALL_PROVIDERS;
     }, [isMobile]);
@@ -189,9 +156,9 @@ export default function WorkspacePage() {
     useEffect(() => {
         if (isMobile) {
             if (activeProviders.includes("ollama")) {
-                const newProviders = activeProviders.filter((p) => p !== "ollama");
-                if (!newProviders.includes("gemini")) newProviders.push("gemini");
-                setActiveProviders(newProviders);
+                const nextProviders = activeProviders.filter((p) => p !== "ollama");
+                if (!nextProviders.includes("gemini")) nextProviders.push("gemini");
+                setActiveProviders(nextProviders);
             } else if (activeProviders.length === 0) {
                 setActiveProviders(["gemini"]);
             }
@@ -199,8 +166,8 @@ export default function WorkspacePage() {
     }, [isMobile, activeProviders, setActiveProviders]);
 
     const disabledProviders = useMemo(
-        () => AVAILABLE_PROVIDERS.filter((provider) => !activeProviders.includes(provider.id)),
-        [activeProviders, AVAILABLE_PROVIDERS]
+        () => availableProviders.filter((provider) => !activeProviders.includes(provider.id)),
+        [activeProviders, availableProviders]
     );
 
     const idleGridClasses = useMemo(
@@ -208,41 +175,22 @@ export default function WorkspacePage() {
         [activeProviders.length]
     );
 
-    /* ═══ Route-based content rendering ═══ */
-    const renderRouteContent = () => {
-        switch (effectiveAmpRoute) {
-            case "agents-repository":
-                return <AgentsRepository />;
-            case "templates":
-                return <Templates />;
-            case "llm-connections":
-                return <LLMConnections />;
-            case "environment-variables":
-                return <EnvVariables />;
-            case "settings":
-                return <Settings />;
-            case "automations":
-                return <Automations />;
-            case "tools-integrations":
-                return <ToolsIntegrations />;
-            case "traces":
-                return <Traces />;
-            case "usage":
-                return <UsagePage />;
-            case "billing":
-                return <BillingPage />;
-            case "crew-studio":
-                return <CrewStudio />;
-            default:
-                return renderCrewStudio();
-        }
-    };
+    return (
+        <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200" suppressHydrationWarning>
+            <WorkspaceHeader
+                sidebarCollapsed={sidebarCollapsed}
+                onExpandSidebar={() => setSidebarCollapsed(false)}
+                actions={
+                    <>
+                        <AssistantToggle />
+                        <ComparisonToggle />
+                    </>
+                }
+            />
 
-    const renderCrewStudio = () => (
-        <>
-            <div className="px-6 pb-2">
+            <div className="px-6 pb-2 pt-4">
                 <div className="flex flex-wrap gap-2">
-                    {AVAILABLE_PROVIDERS.map((provider) => {
+                    {availableProviders.map((provider) => {
                         const isActive = activeProviders.includes(provider.id);
                         return (
                             <button
@@ -342,194 +290,7 @@ export default function WorkspacePage() {
             </div>
 
             <PromptInput />
-        </>
-    );
-
-    /* ═══ Workspace mode & header logic ═══ */
-    const activeWorkspace = useUIStore((s) => s.activeWorkspace);
-    const setActiveWorkspace = useUIStore((s) => s.setActiveWorkspace);
-    const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
-    const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
-
-    /* ── CHAT MODE ── */
-    if (!forceAutonomousRoute && activeWorkspace === "chat") {
-        return (
-            <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200" suppressHydrationWarning>
-                {/* Chat Header */}
-                <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#262626]">
-                    <div className="flex items-center gap-3">
-                        {sidebarCollapsed && (
-                            <button
-                                onClick={() => setSidebarCollapsed(false)}
-                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors mr-2"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600 dark:text-gray-400">
-                                    <line x1="3" y1="6" x2="21" y2="6" />
-                                    <line x1="3" y1="12" x2="21" y2="12" />
-                                    <line x1="3" y1="18" x2="21" y2="18" />
-                                </svg>
-                            </button>
-                        )}
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Workspace</h1>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-
-                        <AssistantToggle />
-                        <div className="relative flex items-center gap-3">
-                            <OtherToolsToggle />
-                            <OtherToolsMenu />
-                        </div>
-                        <ComparisonToggle />
-                        {hasToken ? (
-                            <ProfileDropdown />
-                        ) : (
-                            <a href="/login" className="px-4 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                                Login
-                            </a>
-                        )}
-                    </div>
-                </header>
-
-                {/* Provider Toggle Pills */}
-                <div className="px-6 pb-2 pt-4">
-                    <div className="flex flex-wrap gap-2">
-                        {AVAILABLE_PROVIDERS.map((provider) => {
-                            const isActive = activeProviders.includes(provider.id);
-                            return (
-                                <button
-                                    key={provider.id}
-                                    suppressHydrationWarning
-                                    onClick={() => toggleProvider(provider.id)}
-                                    className={`
-                                        px-4 py-1.5 text-sm rounded-full border transition-all duration-200
-                                        ${isActive
-                                            ? "bg-gray-800 text-white border-gray-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200"
-                                            : "bg-white text-gray-600 border-gray-300 hover:border-gray-400 dark:bg-[#171717] dark:text-gray-400 dark:border-slate-700 dark:hover:border-slate-500"
-                                        }
-                                    `}
-                                >
-                                    {provider.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {disabledProviders.length > 0 && (
-                        <p className="text-sm text-orange-500 mt-2">
-                            Disabled providers: {disabledProviders.map((provider) => provider.id).join(", ")}
-                        </p>
-                    )}
-                </div>
-
-                {/* Chat Content Area — StreamColumns & Response Sets */}
-                <div className="flex-1 overflow-y-auto px-6 py-4">
-                    {activeProviders.length === 0 ? (
-                        <div className="flex items-center justify-center h-64">
-                            <p className="text-gray-400 dark:text-gray-500">
-                                No providers selected. Click a provider button above to activate it.
-                            </p>
-                        </div>
-                    ) : responseSets.length === 0 ? (
-                        <div className={`grid ${idleGridClasses} gap-4`}>
-                            {activeProviders.map((provider) => (
-                                <StreamColumn key={provider} provider={provider} emptyMessage="Start a conversation." />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="space-y-6">
-                            {responseSets.map((responseSet) => {
-                                const visibleProviders = responseSet.providers.filter((provider) =>
-                                    activeProviders.includes(provider as ProviderOption)
-                                );
-                                const setGridClasses = gridClassesForCount(visibleProviders.length);
-
-                                return (
-                                    <section key={responseSet.id} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-[#171717] transition-colors">
-                                        <div className="mb-4 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-gray-700/50 max-w-3xl">
-                                            <p className="text-sm text-gray-700 dark:text-gray-300">{responseSet.prompt}</p>
-                                        </div>
-
-                                        {visibleProviders.length === 0 ? (
-                                            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
-                                                <p className="text-sm text-gray-500">
-                                                    All providers for this response set are currently disabled.
-                                                    Re-enable a provider above to show its column.
-                                                </p>
-                                            </div>
-                                        ) : responseSet.mode === "text" ? (
-                                            <div className={`grid ${setGridClasses} gap-4`}>
-                                                {visibleProviders.map((provider) => {
-                                                    const response = responseSet.responses[provider];
-                                                    return (
-                                                        <StreamColumn
-                                                            key={`${responseSet.id}-${provider}`}
-                                                            provider={provider}
-                                                            textOverride={response?.currentText || ""}
-                                                            isStreamingOverride={response?.isStreaming || false}
-                                                            errorOverride={response?.error || null}
-                                                        />
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <div className={`grid ${setGridClasses} gap-4`}>
-                                                {visibleProviders.map((provider) => (
-                                                    <ImageProviderCard
-                                                        key={`${responseSet.id}-${provider}`}
-                                                        provider={provider}
-                                                        state={responseSet.images[provider]}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {comparisonMode && responseSet.mode === "text" && (
-                                            <RefereeSummaryBox responseSet={responseSet} />
-                                        )}
-                                    </section>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                <PromptInput />
-                <MentorOverlay />
-                <ToolExecutionStream />
-            </div>
-        );
-    }
-
-    /* ── AUTONOMOUS MODE ── */
-    return (
-        <div className="flex flex-col h-full bg-white dark:bg-[#171717] transition-colors duration-200 autonomous-theme" suppressHydrationWarning>
-            {/* Autonomous Header — Back button */}
-            <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#262626]">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setActiveWorkspace("chat")}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="19" y1="12" x2="5" y2="12" />
-                            <polyline points="12 19 5 12 12 5" />
-                        </svg>
-                        Back to Chat
-                    </button>
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">PlotAI Workspace</h1>
-                </div>
-                <div className="flex items-center gap-3">
-                    <AssistantToggle />
-                    <div className="relative flex items-center gap-3">
-                        <OtherToolsToggle />
-                        <OtherToolsMenu />
-                    </div>
-                </div>
-            </header>
-
-            {/* Route-based content */}
-            {renderRouteContent()}
+            <MentorOverlay />
             <ToolExecutionStream />
         </div>
     );

@@ -264,6 +264,10 @@ export default function PromptInput() {
                     const chunk = decoder.decode(value, { stream: true });
                     appendToken(provider, chunk, responseSetId);
                 }
+                const tail = decoder.decode();
+                if (tail) {
+                    appendToken(provider, tail, responseSetId);
+                }
 
                 finalizeStream(provider, responseSetId);
             } catch (error) {

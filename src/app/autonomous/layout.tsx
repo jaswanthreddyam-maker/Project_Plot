@@ -1,31 +1,22 @@
-/**
- * Workspace Layout
- * Renders the chat sidebar + workspace content.
- */
 "use client";
 
-import { usePathname } from "next/navigation";
-import Sidebar from "@/components/workspace/Sidebar";
+import AppSidebar from "@/components/layout/AppSidebar";
 import BackendOfflineBanner from "@/components/layout/BackendOfflineBanner";
 import SettingsModal from "@/components/workspace/SettingsModal";
+import { BackendTokenGate } from "@/components/auth/BackendTokenSync";
 
-export default function WorkspaceLayout({
+export default function AutonomousLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const pathname = usePathname();
-    const hideSidebarForPlotStudio =
-        pathname === "/workspace/plot-studio" ||
-        pathname.startsWith("/workspace/plot-studio/");
-
     return (
         <div className="flex h-screen overflow-hidden bg-white dark:bg-[#171717]">
-            {!hideSidebarForPlotStudio && <Sidebar />}
+            <AppSidebar />
 
             <main className="flex-1 flex flex-col overflow-hidden">
                 <BackendOfflineBanner />
-                {children}
+                <BackendTokenGate>{children}</BackendTokenGate>
             </main>
 
             <SettingsModal />

@@ -53,6 +53,7 @@ function isApiRequest(url: string): boolean {
 function markBackendOffline(message = OFFLINE_MESSAGE): void {
     if (typeof window === "undefined") return;
     useNetworkStore.getState().setBackendOffline(true, message);
+    useNetworkStore.getState().startHealthCheck();
 }
 
 function clearBackendOffline(): void {
@@ -135,8 +136,9 @@ export function initializeApiInterceptors(): void {
                 clearBackendOffline();
             }
             if (response.status === 401 && typeof window !== "undefined") {
+                // Avoid hard redirects here. NextAuth middleware handles route access,
+                // and forcing /login caused /autonomous -> /login -> /workspace bounce loops.
                 localStorage.removeItem("plot_auth_token");
-                window.location.href = "/login";
             }
             return response;
         } catch (error: unknown) {

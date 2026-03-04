@@ -4,8 +4,10 @@ import { useUIStore } from "@/store/uiStore";
 import { API_BASE, fetchWithTimeout } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function OtherToolsMenu() {
+    const router = useRouter();
     const {
         otherToolsMenuOpen,
         setOtherToolsMenuOpen,
@@ -14,13 +16,13 @@ export default function OtherToolsMenu() {
         codeMentorMode,
         toggleCodeMentorMode,
         setActiveAmpRoute,
-        setActiveWorkspace
     } = useUIStore();
 
     const [loadingTool, setLoadingTool] = useState<string | null>(null);
 
     const triggerTool = async (toolId: string) => {
-        if (isToolExecuting || loadingTool) return;
+        const isWorkspaceSwitch = toolId === "PlotAutonomous";
+        if (!isWorkspaceSwitch && (isToolExecuting || loadingTool)) return;
 
         // Force close menu immediately for all tool interactions before any other logic
         setOtherToolsMenuOpen(false);
@@ -30,12 +32,13 @@ export default function OtherToolsMenu() {
             return;
         }
 
-        setLoadingTool(toolId);
-
         if (toolId === "PlotAutonomous") {
-            setActiveWorkspace("autonomous");
             setActiveAmpRoute("agents-repository");
+            router.push("/autonomous");
+            return;
         }
+
+        setLoadingTool(toolId);
 
         try {
             const res = await fetchWithTimeout(`${API_BASE}/api/tools/execute`, {

@@ -13,6 +13,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { ProviderManager } from "@/core/providers/manager";
 import { ProviderName, StreamMessage } from "@/core/providers/types";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const VALID_PROVIDERS: ProviderName[] = ["openai", "gemini", "claude", "ollama", "grok"];
 
 function normalizeMessages(value: unknown): StreamMessage[] {
@@ -89,8 +92,27 @@ export async function POST(
             options
         );
 
+        const encoder = new TextEncoder();
+        const reader = stream.getReader();
+        const byteStream = new ReadableStream<Uint8Array>({
+            async pull(controller) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    controller.close();
+                    reader.releaseLock();
+                    return;
+                }
 
-        return new Response(stream, {
+                if (value) {
+                    controller.enqueue(encoder.encode(value));
+                }
+            },
+            cancel() {
+                reader.releaseLock();
+            },
+        });
+
+        return new Response(byteStream, {
             headers: {
                 "Content-Type": "text/plain; charset=utf-8",
                 "Cache-Control": "no-cache, no-transform",

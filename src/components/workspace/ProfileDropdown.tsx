@@ -6,28 +6,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-
-function getUserInfoFromToken(): { email?: string; name?: string } | null {
-    if (typeof window === "undefined") return null;
-    const token = localStorage.getItem("plot_auth_token");
-    if (!token) return null;
-
-    try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        return { email: payload.sub || payload.email, name: payload.name };
-    } catch {
-        return { email: "User" };
-    }
-}
+import { signIn, signOut, useSession } from "next-auth/react";
 
 export default function ProfileDropdown() {
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-
-    // Derive user info from localStorage token (JWT payload)
-    const [userInfo] = useState<{ email?: string; name?: string } | null>(
-        () => getUserInfoFromToken()
-    );
+    const { data: session } = useSession();
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -40,9 +24,11 @@ export default function ProfileDropdown() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [open]);
 
-    if (!userInfo) return null;
+    if (!session?.user) return null;
 
-    const displayName = userInfo.name || userInfo.email || "User";
+    const displayName = session.user.name || session.user.email || "User";
+    const email = session.user.email || "";
+    const avatarUrl = session.user.image || "";
     const initials = displayName
         .split(" ")
         .map((w) => w[0])
@@ -52,8 +38,7 @@ export default function ProfileDropdown() {
 
     const handleLogout = () => {
         setOpen(false);
-        localStorage.removeItem("plot_auth_token");
-        window.location.href = "/login";
+        void signOut({ callbackUrl: "/login" });
     };
 
     return (
@@ -63,9 +48,18 @@ export default function ProfileDropdown() {
                 onClick={() => setOpen(!open)}
                 className="flex items-center gap-2 rounded-full hover:ring-2 hover:ring-gray-200 transition-all"
             >
-                <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs font-bold">
-                    {initials}
-                </div>
+                {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        className="w-8 h-8 rounded-full object-cover"
+                    />
+                ) : (
+                    <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs font-bold">
+                        {initials}
+                    </div>
+                )}
             </button>
 
             {/* Dropdown menu */}
@@ -77,11 +71,26 @@ export default function ProfileDropdown() {
                             {displayName}
                         </p>
                         <p className="text-xs text-gray-500 truncate">
-                            {userInfo.email}
+                            {email}
                         </p>
                     </div>
 
                     {/* Menu items */}
+                    <button
+                        onClick={() => {
+                            // Clear old python backend token nxt session ki clash avvakunda
+                            if (typeof window !== "undefined") {
+                                localStorage.removeItem("plot_auth_token");
+                            }
+                            // Force Google account selector
+                            signIn("google", { callbackUrl: "/workspace" }, { prompt: "select_account" });
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                        {/* Add ur switch icon here */}
+                        Switch Account
+                    </button>
+
                     <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"

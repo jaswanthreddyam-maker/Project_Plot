@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { motion } from "framer-motion";
 import { Activity, DollarSign, ShieldCheck, TrendingUp, BarChart3, Users, Wrench } from "lucide-react";
@@ -35,7 +34,6 @@ const SkeletonLoader = () => (
 );
 
 export function UsagePage() {
-    const router = useRouter();
     const [metrics, setMetrics] = useState<UsageMetrics>({
         summary: {
             total_cost: 0,
@@ -70,7 +68,8 @@ export function UsagePage() {
             });
 
             if (res.status === 401) {
-                router.push("/login");
+                setOfflineMessage("Usage analytics is unauthorized for the current backend token. Please reauthenticate backend access from your profile.");
+                setOfflineError(true);
                 return;
             }
 
@@ -108,7 +107,7 @@ export function UsagePage() {
         } finally {
             setLoading(false);
         }
-    }, [router]);
+    }, []);
 
     useEffect(() => {
         fetchUsage();
